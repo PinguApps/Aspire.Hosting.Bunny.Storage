@@ -21,4 +21,7 @@ public sealed class BunnyPullZoneDetails
 
     [JsonPropertyName("Suspended")]
     public bool? Suspended { get; set; }
+
+    [JsonPropertyName("ZoneSecurityEnabled")]
+    public bool? ZoneSecurityEnabled { get; set; }
 }

@@ -221,9 +221,14 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Theory]
-    [InlineData(false, false, "disabled")]
-    [InlineData(true, true, "suspended")]
-    public async Task PullZoneAdoptionFailsWhenExistingZoneCannotServeTraffic(bool enabled, bool suspended, string expectedMessage)
+    [InlineData(false, false, false, "disabled")]
+    [InlineData(true, true, false, "suspended")]
+    [InlineData(true, false, true, "token authentication")]
+    public async Task PullZoneAdoptionFailsWhenExistingZoneCannotServeTraffic(
+        bool enabled,
+        bool suspended,
+        bool zoneSecurityEnabled,
+        string expectedMessage)
     {
         FakeBunnyStorageManagementClient client = new();
         client.PullZones.Add(new BunnyPullZoneDetails
@@ -234,6 +239,7 @@ public sealed class BunnyStorageHostingTests
             OriginUrl = "https://storage.bunnycdn.com/my-zone/",
             Enabled = enabled,
             Suspended = suspended,
+            ZoneSecurityEnabled = zoneSecurityEnabled,
         });
         BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
 

@@ -123,6 +123,12 @@ public sealed class BunnyStorageCreateFlow
                 $"Bunny Storage pull zone '{existing.Name}' exists but is suspended.");
         }
 
+        if (existing.ZoneSecurityEnabled == true)
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage pull zone '{existing.Name}' has URL token authentication enabled and cannot serve unsigned public object-storage URLs.");
+        }
+
         if (existing.StorageZoneId is not null && existing.StorageZoneId != zone.Id)
         {
             throw new InvalidOperationException(
