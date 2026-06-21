@@ -167,6 +167,26 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public async Task CreateOrAdoptDetectsReplicationRegionDrift()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails
+        {
+            Id = 1,
+            Name = "my-zone",
+            Password = "password",
+            Region = "DE",
+            ReplicationRegions = ["SG"],
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("replication regions", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task AccessKeyOutputIsSecretAndOutputsPopulate()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
