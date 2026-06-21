@@ -26,12 +26,6 @@ public static class BunnyStorageReferenceBuilderExtensions
                 return;
             }
 
-            if (context.ExecutionContext.Operation == DistributedApplicationOperation.Publish)
-            {
-                throw new InvalidOperationException(
-                    "Bunny Storage output references are only produced during deploy. Use Aspire deploy for Bunny-backed object storage, or run locally with Azurite.");
-            }
-
             BunnyStorageOutputs outputs = resource.TryGetBunnyStorageOutputs()
                 ?? throw new InvalidOperationException($"Blob container resource '{resource.Name}' has not been published to Bunny Storage.");
             context.EnvironmentVariables[$"{prefix}Provider"] = "Bunny";
