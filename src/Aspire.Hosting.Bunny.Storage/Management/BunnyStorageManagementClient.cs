@@ -85,8 +85,21 @@ public sealed class BunnyStorageManagementClient : IBunnyStorageManagementClient
         }, options: _writeJsonOptions);
         using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         await EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
-        return await response.Content.ReadFromJsonAsync<BunnyPullZoneDetails>(_readJsonOptions, cancellationToken).ConfigureAwait(false)
-            ?? throw new BunnyStorageProviderException(BunnyStorageProviderFailureKind.Unexpected, "Bunny returned an empty pull-zone response.");
+        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            return JsonSerializer.Deserialize<BunnyPullZoneDetails>(body, _readJsonOptions)
+                ?? throw new BunnyStorageProviderException(BunnyStorageProviderFailureKind.Unexpected, "Bunny returned an invalid pull-zone response.");
+        }
+
+        IReadOnlyList<BunnyPullZoneDetails> pullZones = await ListPullZonesAsync(cancellationToken).ConfigureAwait(false);
+        return pullZones.FirstOrDefault(zone => string.Equals(zone.Name, name, StringComparison.OrdinalIgnoreCase))
+            ?? new BunnyPullZoneDetails
+            {
+                Name = name,
+                OriginUrl = originUrl,
+                StorageZoneId = storageZoneId,
+            };
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)

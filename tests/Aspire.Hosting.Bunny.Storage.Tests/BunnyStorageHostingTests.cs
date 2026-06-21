@@ -423,6 +423,34 @@ public sealed class BunnyStorageHostingTests
         Assert.Contains("\"ReplicationRegions\":[]", handler.RequestBody, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ManagementClientUsesListedPullZoneWhenCreateResponseIsEmpty()
+    {
+        QueueResponseHandler handler = new(
+            new HttpResponseMessage(HttpStatusCode.Created),
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""
+                    [{"Id":456,"Name":"my-zone","OriginUrl":"https://storage.bunnycdn.com/my-zone/","StorageZoneId":123}]
+                    """),
+            });
+        HttpClient httpClient = new(handler)
+        {
+            BaseAddress = new Uri("https://api.bunny.net/"),
+        };
+        BunnyStorageManagementClient client = new(httpClient, new BunnyStorageManagementCredentials("account-api-key"));
+
+        BunnyPullZoneDetails pullZone = await client.CreatePullZoneAsync(
+            "my-zone",
+            "https://storage.bunnycdn.com/my-zone/",
+            123,
+            CancellationToken.None);
+
+        Assert.Equal(456, pullZone.Id);
+        Assert.All(handler.RequestPaths, path => Assert.EndsWith("/pullzone", path, StringComparison.Ordinal));
+        Assert.Equal(2, handler.RequestPaths.Count);
+    }
+
     private static BunnyStorageResolvedDeployment CreateDeployment(
         BunnyStorageOwnershipMode ownershipMode = BunnyStorageOwnershipMode.CreateOrAdopt,
         bool createPullZone = false)
@@ -514,6 +542,19 @@ public sealed class BunnyStorageHostingTests
             }
 
             return response;
+        }
+    }
+
+    private sealed class QueueResponseHandler(params HttpResponseMessage[] responses) : HttpMessageHandler
+    {
+        private readonly Queue<HttpResponseMessage> _responses = new(responses);
+
+        public List<string> RequestPaths { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestPaths.Add(request.RequestUri?.ToString() ?? "");
+            return Task.FromResult(_responses.Dequeue());
         }
     }
 
