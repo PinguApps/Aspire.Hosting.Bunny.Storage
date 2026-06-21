@@ -68,7 +68,15 @@ public sealed class AzureBlobObjectStorage : IObjectStorage
     private async Task EnsurePublicContainerAsync(CancellationToken cancellationToken)
     {
         await _container.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: cancellationToken).ConfigureAwait(false);
-        await _container.SetAccessPolicyAsync(PublicAccessType.Blob, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        BlobContainerAccessPolicy accessPolicy = await _container.GetAccessPolicyAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        if (accessPolicy.BlobPublicAccess != PublicAccessType.Blob)
+        {
+            await _container.SetAccessPolicyAsync(
+                PublicAccessType.Blob,
+                accessPolicy.SignedIdentifiers,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
     }
 
     private static string SanitizeConnectionString(string connectionString)
