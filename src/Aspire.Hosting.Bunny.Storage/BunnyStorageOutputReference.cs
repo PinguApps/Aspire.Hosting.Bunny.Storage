@@ -32,6 +32,8 @@ public sealed class BunnyStorageOutputReference : IExpressionValue, IValueProvid
     [AspireExportIgnore(Reason = "Reference mechanics are consumed by Aspire.")]
     public ReferenceExpression AsReferenceExpression() => ReferenceExpression.Create($"{this}");
 
+    public override string ToString() => ValueExpression;
+
     [AspireExportIgnore(Reason = "Reference values are resolved by Aspire.")]
     public ValueTask<string?> GetValueAsync(CancellationToken cancellationToken)
     {
