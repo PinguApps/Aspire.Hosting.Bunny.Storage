@@ -188,6 +188,29 @@ public sealed class BunnyStorageHostingTests
         Assert.Contains("linked to storage zone", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(false, false, "disabled")]
+    [InlineData(true, true, "suspended")]
+    public async Task PullZoneAdoptionFailsWhenExistingZoneCannotServeTraffic(bool enabled, bool suspended, string expectedMessage)
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.PullZones.Add(new BunnyPullZoneDetails
+        {
+            Id = 10,
+            Name = "my-zone",
+            StorageZoneId = 123,
+            OriginUrl = "https://storage.bunnycdn.com/my-zone/",
+            Enabled = enabled,
+            Suspended = suspended,
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains(expectedMessage, exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task CreateOrAdoptAdoptsExistingAndDetectsImmutableDrift()
     {

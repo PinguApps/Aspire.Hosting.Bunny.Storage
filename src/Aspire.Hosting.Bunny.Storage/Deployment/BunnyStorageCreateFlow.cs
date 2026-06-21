@@ -111,6 +111,18 @@ public sealed class BunnyStorageCreateFlow
 
     private static void ValidateExistingPullZone(BunnyPullZoneDetails existing, BunnyStorageZoneDetails zone, string expectedOriginUrl)
     {
+        if (existing.Enabled == false)
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage pull zone '{existing.Name}' exists but is disabled.");
+        }
+
+        if (existing.Suspended == true)
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage pull zone '{existing.Name}' exists but is suspended.");
+        }
+
         if (existing.StorageZoneId is not null && existing.StorageZoneId != zone.Id)
         {
             throw new InvalidOperationException(

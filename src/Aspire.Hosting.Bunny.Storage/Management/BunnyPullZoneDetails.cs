@@ -15,4 +15,10 @@ public sealed class BunnyPullZoneDetails
 
     [JsonPropertyName("StorageZoneId")]
     public long? StorageZoneId { get; set; }
+
+    [JsonPropertyName("Enabled")]
+    public bool? Enabled { get; set; }
+
+    [JsonPropertyName("Suspended")]
+    public bool? Suspended { get; set; }
 }
