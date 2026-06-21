@@ -187,6 +187,20 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public async Task CachedIdentityMustStillExist()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails { Id = 2, Name = "my-zone", Password = "password", Region = "DE" });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+        BunnyStorageRemoteIdentityState cachedIdentity = new("my-zone", "1");
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity, CancellationToken.None));
+
+        Assert.Contains("no longer exists", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task AccessKeyOutputIsSecretAndOutputsPopulate()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();

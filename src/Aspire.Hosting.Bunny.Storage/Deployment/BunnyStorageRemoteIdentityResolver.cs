@@ -31,7 +31,13 @@ public sealed class BunnyStorageRemoteIdentityResolver
                 $"Bunny Storage resource was previously deployed as '{cachedIdentity.StorageZoneName}' with id '{cachedIdentity.ProviderStorageZoneId}', but the AppHost now requests '{storageZoneName}'. Rename requires explicit state cleanup.");
         }
 
-        return new BunnyStorageRemoteIdentityStateResult(byId ?? byName, byId is not null);
+        if (byId is null)
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage resource was previously deployed as '{cachedIdentity.StorageZoneName}' with id '{cachedIdentity.ProviderStorageZoneId}', but that storage zone no longer exists. Delete the deployment state before adopting or recreating a different Bunny Storage zone.");
+        }
+
+        return new BunnyStorageRemoteIdentityStateResult(byId, ResolvedFromCachedIdentity: true);
     }
 }
 
