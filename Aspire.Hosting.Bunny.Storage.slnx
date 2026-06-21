@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Aspire.Hosting.Bunny.Storage/Aspire.Hosting.Bunny.Storage.csproj" />
+    <Project Path="src/PinguApps.ObjectStorage/PinguApps.ObjectStorage.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Aspire.Hosting.Bunny.Storage.Tests/Aspire.Hosting.Bunny.Storage.Tests.csproj" />
+    <Project Path="tests/PinguApps.ObjectStorage.Tests/PinguApps.ObjectStorage.Tests.csproj" />
+  </Folder>
+</Solution>

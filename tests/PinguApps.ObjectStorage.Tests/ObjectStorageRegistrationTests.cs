@@ -1,0 +1,120 @@
+using System.Net;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using PinguApps.ObjectStorage;
+
+namespace PinguApps.ObjectStorage.Tests;
+
+public sealed class ObjectStorageRegistrationTests
+{
+    [Fact]
+    public void AddObjectStorageRegistersAzureWhenConfigured()
+    {
+        IConfiguration configuration = BuildConfiguration(("ObjectStorage:media:Provider", "AzureBlob"),
+            ("ObjectStorage:media:PublicBaseUrl", "http://127.0.0.1:10000/devstoreaccount1/media"),
+            ("ObjectStorage:media:Azure:ConnectionString", "UseDevelopmentStorage=true"),
+            ("ObjectStorage:media:Azure:ContainerName", "media"));
+
+        ServiceProvider services = new ServiceCollection().AddObjectStorage(configuration).BuildServiceProvider();
+
+        Assert.IsType<AzureBlobObjectStorage>(services.GetRequiredService<IObjectStorage>());
+        Assert.Same(
+            services.GetRequiredService<IObjectStorage>(),
+            services.GetRequiredService<IObjectStorageProvider>().GetRequiredStorage("media"));
+    }
+
+    [Fact]
+    public void AddObjectStorageRegistersBunnyWhenConfigured()
+    {
+        IConfiguration configuration = BuildConfiguration(("ObjectStorage:media:Provider", "Bunny"),
+            ("ObjectStorage:media:PublicBaseUrl", "https://media.b-cdn.net"),
+            ("ObjectStorage:media:Bunny:StorageZoneName", "zone"),
+            ("ObjectStorage:media:Bunny:AccessKey", "storage-password"),
+            ("ObjectStorage:media:Bunny:Endpoint", "https://storage.bunnycdn.com"));
+
+        ServiceProvider services = new ServiceCollection().AddObjectStorage(configuration).BuildServiceProvider();
+
+        Assert.IsType<BunnyObjectStorage>(services.GetRequiredService<IObjectStorage>());
+    }
+
+    [Fact]
+    public void AddObjectStorageRejectsUnknownProvider()
+    {
+        IConfiguration configuration = BuildConfiguration(("ObjectStorage:media:Provider", "Other"));
+        ServiceProvider services = new ServiceCollection().AddObjectStorage(configuration).BuildServiceProvider();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => services.GetRequiredService<IObjectStorage>());
+        Assert.Contains("unknown provider", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AddObjectStorageDoesNotRegisterBareStorageForMultipleStores()
+    {
+        IConfiguration configuration = BuildConfiguration(
+            ("ObjectStorage:media:Provider", "AzureBlob"),
+            ("ObjectStorage:media:PublicBaseUrl", "http://127.0.0.1:10000/devstoreaccount1/media"),
+            ("ObjectStorage:media:Azure:ConnectionString", "UseDevelopmentStorage=true"),
+            ("ObjectStorage:media:Azure:ContainerName", "media"),
+            ("ObjectStorage:avatars:Provider", "AzureBlob"),
+            ("ObjectStorage:avatars:PublicBaseUrl", "http://127.0.0.1:10000/devstoreaccount1/avatars"),
+            ("ObjectStorage:avatars:Azure:ConnectionString", "UseDevelopmentStorage=true"),
+            ("ObjectStorage:avatars:Azure:ContainerName", "avatars"));
+
+        ServiceProvider services = new ServiceCollection().AddObjectStorage(configuration).BuildServiceProvider();
+
+        Assert.Null(services.GetService<IObjectStorage>());
+        Assert.IsType<AzureBlobObjectStorage>(services.GetRequiredService<IObjectStorageProvider>().GetRequiredStorage("avatars"));
+    }
+
+    [Fact]
+    public async Task BunnyObjectStorageSendsAccessKeyAndEscapedStorageUrl()
+    {
+        CapturingHandler handler = new();
+        BunnyObjectStorage storage = new(
+            new HttpClient(handler),
+            "my-zone",
+            "storage-password",
+            "https://ny.storage.bunnycdn.com",
+            "https://cdn.example.com/assets");
+
+        await storage.PutAsync("/folder/a b.txt", new MemoryStream([1, 2, 3]), "text/plain");
+
+        Assert.Equal(HttpMethod.Put, handler.Requests[0].Method);
+        Assert.Equal("https://ny.storage.bunnycdn.com/my-zone/folder/a%20b.txt", handler.Requests[0].RequestUri!.AbsoluteUri);
+        Assert.Equal("storage-password", handler.Requests[0].Headers.GetValues("AccessKey").Single());
+        Assert.Equal("https://cdn.example.com/assets/folder/a%20b.txt", storage.GetPublicUrl("folder/a b.txt"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("https://example.com/file.png")]
+    [InlineData("../file.png")]
+    [InlineData("folder/../file.png")]
+    public void BunnyObjectStorageRejectsBadKeys(string key)
+    {
+        BunnyObjectStorage storage = new(new HttpClient(new CapturingHandler()), "zone", "key", "https://storage.bunnycdn.com", "https://cdn.example.com");
+
+        Assert.ThrowsAny<ArgumentException>(() => storage.GetPublicUrl(key));
+    }
+
+    private static IConfiguration BuildConfiguration(params (string Key, string Value)[] values)
+    {
+        return new ConfigurationBuilder()
+            .AddInMemoryCollection(values.Select(value => new KeyValuePair<string, string?>(value.Key, value.Value)))
+            .Build();
+    }
+
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public List<HttpRequestMessage> Requests { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent([]),
+            });
+        }
+    }
+}

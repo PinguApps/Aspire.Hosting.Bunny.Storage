@@ -1,0 +1,15 @@
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\bin\Release\net10.0\Aspire.Hosting.Bunny.Storage.deps.json
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\bin\Release\net10.0\Aspire.Hosting.Bunny.Storage.dll
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\bin\Release\net10.0\Aspire.Hosting.Bunny.Storage.pdb
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\bin\Release\net10.0\Aspire.Hosting.Bunny.Storage.xml
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.csproj.AssemblyReference.cache
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.GeneratedMSBuildEditorConfig.editorconfig
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.AssemblyInfoInputs.cache
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.AssemblyInfo.cs
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.csproj.CoreCompileInputs.cache
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.sourcelink.json
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.dll
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\refint\Aspire.Hosting.Bunny.Storage.dll
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.xml
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\Aspire.Hosting.Bunny.Storage.pdb
+V:\Aspire.Hosting.Bunny.Storage\src\Aspire.Hosting.Bunny.Storage\obj\Release\net10.0\ref\Aspire.Hosting.Bunny.Storage.dll

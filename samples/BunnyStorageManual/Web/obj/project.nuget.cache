@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "2B3mnMuNQw8=",
+  "success": true,
+  "projectFilePath": "V:\\Aspire.Hosting.Bunny.Storage\\samples\\BunnyStorageManual\\Web\\BunnyStorageManual.Web.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\pingu\\.nuget\\packages\\azure.core\\1.51.1\\azure.core.1.51.1.nupkg.sha512",
+    "C:\\Users\\pingu\\.nuget\\packages\\azure.storage.blobs\\12.28.0\\azure.storage.blobs.12.28.0.nupkg.sha512",
+    "C:\\Users\\pingu\\.nuget\\packages\\azure.storage.common\\12.27.0\\azure.storage.common.12.27.0.nupkg.sha512",
+    "C:\\Users\\pingu\\.nuget\\packages\\microsoft.bcl.asyncinterfaces\\10.0.2\\microsoft.bcl.asyncinterfaces.10.0.2.nupkg.sha512",
+    "C:\\Users\\pingu\\.nuget\\packages\\system.clientmodel\\1.9.0\\system.clientmodel.1.9.0.nupkg.sha512",
+    "C:\\Users\\pingu\\.nuget\\packages\\system.io.hashing\\10.0.3\\system.io.hashing.10.0.3.nupkg.sha512",
+    "C:\\Users\\pingu\\.nuget\\packages\\system.memory.data\\10.0.1\\system.memory.data.10.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}

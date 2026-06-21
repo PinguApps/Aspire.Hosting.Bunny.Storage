@@ -1,0 +1,11 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.4.3">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <UserSecretsId>4d0839df-95fb-4a31-b137-e4d5c1bdba8b</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Aspire.Hosting.Bunny.Storage\Aspire.Hosting.Bunny.Storage.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\Web\BunnyStorageManual.Web.csproj" />
+  </ItemGroup>
+</Project>
