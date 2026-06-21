@@ -107,7 +107,8 @@ internal static class BunnyStorageDeploymentPipeline
         BunnyStorageOwnershipResolutionResult ownership = BunnyStorageOwnershipResolver.Resolve(
             deployment.OwnershipMode,
             deployment.StorageZoneName,
-            remoteIdentity.StorageZone);
+            remoteIdentity.StorageZone,
+            remoteIdentity.ResolvedFromCachedIdentity);
 
         BunnyStorageCreateFlowResult result = await new BunnyStorageCreateFlow(client)
             .ExecuteAsync(deployment, ownership, cancellationToken)

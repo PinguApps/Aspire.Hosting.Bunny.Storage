@@ -15,10 +15,13 @@ public static class BunnyStorageOwnershipResolver
     public static BunnyStorageOwnershipResolutionResult Resolve(
         BunnyStorageOwnershipMode ownershipMode,
         string storageZoneName,
-        BunnyStorageZoneDetails? existingZone)
+        BunnyStorageZoneDetails? existingZone,
+        bool existingZoneResolvedFromCachedIdentity = false)
     {
         return ownershipMode switch
         {
+            BunnyStorageOwnershipMode.CreateOnly when existingZone is not null && existingZoneResolvedFromCachedIdentity =>
+                new(BunnyStorageOwnershipResolutionAction.UseExisting, existingZone),
             BunnyStorageOwnershipMode.CreateOnly when existingZone is not null =>
                 throw new InvalidOperationException($"Bunny Storage zone '{storageZoneName}' already exists, but ownership mode is CreateOnly."),
             BunnyStorageOwnershipMode.CreateOnly => new(BunnyStorageOwnershipResolutionAction.Create, null),

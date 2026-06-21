@@ -297,6 +297,32 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public async Task CreateOnlyUsesCachedIdentityOnRedeploy()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails
+        {
+            Id = 1,
+            Name = "my-zone",
+            Password = "password",
+            Region = "DE",
+            ReplicationRegions = ["NY"],
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(BunnyStorageOwnershipMode.CreateOnly);
+        BunnyStorageRemoteIdentityState cachedIdentity = new("my-zone", "1");
+
+        BunnyStorageCreateFlowResult result = await BunnyStorageDeploymentPipeline.ExecuteAsync(
+            deployment,
+            client,
+            cachedIdentity,
+            CancellationToken.None);
+
+        Assert.False(result.Created);
+        Assert.Equal(1, result.StorageZone.Id);
+        Assert.DoesNotContain("POST /storagezone", client.Interactions);
+    }
+
+    [Fact]
     public async Task CachedIdentityMustStillExist()
     {
         FakeBunnyStorageManagementClient client = new();
