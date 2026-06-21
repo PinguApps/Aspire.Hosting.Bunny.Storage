@@ -132,6 +132,22 @@ public sealed class BunnyStorageHostingTests
         Assert.Equal("password", await outputs.AccessKey.GetValueAsync(CancellationToken.None));
     }
 
+    [Fact]
+    public void ManagementClientRejectsMissingHttpClientBaseAddress()
+    {
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+            new BunnyStorageManagementClient(new HttpClient(), new BunnyStorageManagementCredentials("account-api-key")));
+
+        Assert.Contains("BaseAddress", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ManagementClientRejectsNullCredentials()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new BunnyStorageManagementClient(new HttpClient { BaseAddress = new Uri("https://api.bunny.net/") }, credentials: null!));
+    }
+
     private static BunnyStorageResolvedDeployment CreateDeployment(
         BunnyStorageOwnershipMode ownershipMode = BunnyStorageOwnershipMode.CreateOrAdopt,
         bool createPullZone = false)

@@ -17,6 +17,13 @@ public sealed class BunnyStorageManagementClient : IBunnyStorageManagementClient
 
     public BunnyStorageManagementClient(HttpClient httpClient, BunnyStorageManagementCredentials credentials)
     {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(credentials);
+        if (httpClient.BaseAddress is null || !httpClient.BaseAddress.IsAbsoluteUri)
+        {
+            throw new ArgumentException("Bunny Storage management client requires an absolute HttpClient.BaseAddress.", nameof(httpClient));
+        }
+
         _httpClient = httpClient;
         _credentials = credentials;
     }
