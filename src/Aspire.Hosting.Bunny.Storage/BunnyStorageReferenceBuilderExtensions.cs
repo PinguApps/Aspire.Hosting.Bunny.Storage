@@ -34,6 +34,14 @@ public static class BunnyStorageReferenceBuilderExtensions
             context.EnvironmentVariables[$"{prefix}Bunny__AccessKey"] = outputs.AccessKey;
             context.EnvironmentVariables[$"{prefix}Bunny__Endpoint"] = outputs.StorageEndpoint;
         }));
+        builder.WithManifestPublishingCallback(_ =>
+        {
+            if (resource.TryGetBunnyStorageOutputs() is not null)
+            {
+                throw new InvalidOperationException(
+                    "Bunny Storage object-storage references are produced during aspire deploy, not aspire publish. Use aspire deploy for Bunny-backed object storage, or run locally with Azurite.");
+            }
+        });
 
         return builder;
     }

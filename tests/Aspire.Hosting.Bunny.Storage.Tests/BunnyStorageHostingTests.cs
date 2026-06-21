@@ -7,7 +7,9 @@ using Aspire.Hosting.Bunny.Storage;
 using Aspire.Hosting.Bunny.Storage.Deployment;
 using Aspire.Hosting.Bunny.Storage.Management;
 using Aspire.Hosting.Pipelines;
+using Aspire.Hosting.Publishing;
 using System.Net;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Aspire.Hosting.Bunny.Storage.Tests;
@@ -97,6 +99,36 @@ public sealed class BunnyStorageHostingTests
 
         Assert.Contains("PublicBaseUrl", exception.Message, StringComparison.Ordinal);
         Assert.Contains("CreatePullZone", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WithObjectStorageRejectsManifestPublishForBunnyOutputs()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithObjectStorage(media);
+
+        ManifestPublishingCallbackAnnotation annotation = web.Resource.Annotations
+            .OfType<ManifestPublishingCallbackAnnotation>()
+            .Single();
+        Assert.NotNull(annotation.Callback);
+        using MemoryStream stream = new();
+        using Utf8JsonWriter writer = new(stream);
+        ManifestPublishingContext context = new(
+            new DistributedApplicationExecutionContext(DistributedApplicationOperation.Publish, "manifest"),
+            "manifest.json",
+            writer,
+            CancellationToken.None);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => annotation.Callback(context));
+
+        Assert.Contains("aspire deploy", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
