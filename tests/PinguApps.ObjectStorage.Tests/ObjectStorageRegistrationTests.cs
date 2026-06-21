@@ -77,12 +77,48 @@ public sealed class ObjectStorageRegistrationTests
             "https://ny.storage.bunnycdn.com",
             "https://cdn.example.com/assets");
 
-        await storage.PutAsync("/folder/a b.txt", new MemoryStream([1, 2, 3]), "text/plain");
+        await storage.PutAsync("/folder/a b.txt", new MemoryStream([1, 2, 3]), "text/plain; charset=utf-8");
 
         Assert.Equal(HttpMethod.Put, handler.Requests[0].Method);
         Assert.Equal("https://ny.storage.bunnycdn.com/my-zone/folder/a%20b.txt", handler.Requests[0].RequestUri!.AbsoluteUri);
         Assert.Equal("storage-password", handler.Requests[0].Headers.GetValues("AccessKey").Single());
+        Assert.Equal("text/plain; charset=utf-8", handler.Requests[0].Content!.Headers.ContentType!.ToString());
         Assert.Equal("https://cdn.example.com/assets/folder/a%20b.txt", storage.GetPublicUrl("folder/a b.txt"));
+    }
+
+    [Fact]
+    public async Task BunnyObjectStorageExistsUsesGetAndReturnsTrueWhenFileExists()
+    {
+        CapturingHandler handler = new();
+        BunnyObjectStorage storage = new(
+            new HttpClient(handler),
+            "my-zone",
+            "storage-password",
+            "https://storage.bunnycdn.com",
+            "https://cdn.example.com");
+
+        bool exists = await storage.ExistsAsync("folder/file.png");
+
+        Assert.True(exists);
+        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
+        Assert.Equal("https://storage.bunnycdn.com/my-zone/folder/file.png", handler.Requests[0].RequestUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task BunnyObjectStorageExistsReturnsFalseForNotFound()
+    {
+        CapturingHandler handler = new(HttpStatusCode.NotFound);
+        BunnyObjectStorage storage = new(
+            new HttpClient(handler),
+            "my-zone",
+            "storage-password",
+            "https://storage.bunnycdn.com",
+            "https://cdn.example.com");
+
+        bool exists = await storage.ExistsAsync("missing.png");
+
+        Assert.False(exists);
+        Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
     }
 
     [Theory]
@@ -106,12 +142,19 @@ public sealed class ObjectStorageRegistrationTests
 
     private sealed class CapturingHandler : HttpMessageHandler
     {
+        private readonly HttpStatusCode _statusCode;
+
+        public CapturingHandler(HttpStatusCode statusCode = HttpStatusCode.OK)
+        {
+            _statusCode = statusCode;
+        }
+
         public List<HttpRequestMessage> Requests { get; } = [];
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            return Task.FromResult(new HttpResponseMessage(_statusCode)
             {
                 Content = new ByteArrayContent([]),
             });

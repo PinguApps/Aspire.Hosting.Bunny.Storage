@@ -41,7 +41,7 @@ public sealed class BunnyObjectStorage : IObjectStorage
 
         using HttpRequestMessage request = CreateRequest(HttpMethod.Put, key);
         request.Content = new StreamContent(content);
-        request.Content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
 
         using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
@@ -62,8 +62,10 @@ public sealed class BunnyObjectStorage : IObjectStorage
     /// <inheritdoc />
     public async Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default)
     {
-        using HttpRequestMessage request = CreateRequest(HttpMethod.Head, key);
-        using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using HttpRequestMessage request = CreateRequest(HttpMethod.Get, key);
+        using HttpResponseMessage response = await _httpClient
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return false;
