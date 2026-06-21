@@ -323,10 +323,11 @@ public sealed class BunnyStorageHostingTests
     [Fact]
     public async Task ManagementClientClassifiesDeletingStorageZoneName()
     {
-        HttpClient httpClient = new(new ResponseHandler(new HttpResponseMessage(HttpStatusCode.BadRequest)
+        ResponseHandler handler = new(new HttpResponseMessage(HttpStatusCode.BadRequest)
         {
             Content = new StringContent("""{"ErrorKey":"storagezone.name_taken","Field":"Name","Message":"The storage zone is currently being deleted."}"""),
-        }))
+        });
+        HttpClient httpClient = new(handler)
         {
             BaseAddress = new Uri("https://api.bunny.net/"),
         };
@@ -336,6 +337,9 @@ public sealed class BunnyStorageHostingTests
             client.CreateStorageZoneAsync("my-zone", "DE", [], CancellationToken.None));
 
         Assert.Equal(BunnyStorageProviderFailureKind.StorageZoneBeingDeleted, exception.FailureKind);
+        Assert.Contains("\"Name\":\"my-zone\"", handler.RequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"Region\":\"DE\"", handler.RequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"ReplicationRegions\":[]", handler.RequestBody, StringComparison.Ordinal);
     }
 
     private static BunnyStorageResolvedDeployment CreateDeployment(
@@ -419,9 +423,16 @@ public sealed class BunnyStorageHostingTests
 
     private sealed class ResponseHandler(HttpResponseMessage response) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        public string RequestBody { get; private set; } = string.Empty;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(response);
+            if (request.Content is not null)
+            {
+                RequestBody = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            return response;
         }
     }
 
