@@ -10,7 +10,12 @@ var bunnyApiKey = builder.AddParameter("bunny-api-key", secret: true);
 var media = builder.AddAzureStorage("storage")
     .RunAsEmulator()
     .AddBlobContainer("media", "media")
-    .PublishToBunny("myapp-media", bunnyApiKey);
+    .PublishToBunny("myapp-media", bunnyApiKey, options =>
+    {
+        options.CreatePullZone = true;
+        options.PullZoneName = "myapp-media";
+        options.PublicBaseUrl = "https://myapp-media.b-cdn.net";
+    });
 
 builder.AddProject<Projects.Web>("web")
     .WithReference(media)

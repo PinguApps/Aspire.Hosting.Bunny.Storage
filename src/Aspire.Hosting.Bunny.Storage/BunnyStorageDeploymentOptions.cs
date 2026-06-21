@@ -97,6 +97,11 @@ public sealed class BunnyStorageDeploymentOptions
             throw new InvalidOperationException("Bunny Storage pull-zone creation requires PullZoneName.");
         }
 
+        if (!CreatePullZone && string.IsNullOrWhiteSpace(PublicBaseUrl))
+        {
+            throw new InvalidOperationException("Bunny Storage deployment requires either CreatePullZone or PublicBaseUrl so deployed apps receive a public read URL.");
+        }
+
         if (!string.IsNullOrWhiteSpace(PublicBaseUrl)
             && !Uri.TryCreate(PublicBaseUrl, UriKind.Absolute, out _))
         {

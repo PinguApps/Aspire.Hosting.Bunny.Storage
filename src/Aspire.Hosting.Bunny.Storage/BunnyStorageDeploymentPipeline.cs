@@ -109,7 +109,7 @@ internal static class BunnyStorageDeploymentPipeline
             return $"https://{pullZone.Name}.b-cdn.net";
         }
 
-        return $"{deployment.StorageEndpoint.TrimEnd('/')}/{Uri.EscapeDataString(deployment.StorageZoneName)}";
+        throw new InvalidOperationException("Bunny Storage deployment did not produce a public base URL. Configure PublicBaseUrl or enable CreatePullZone.");
     }
 
     private static void Report(ILogger logger, BunnyStorageDeploymentProgress progress)

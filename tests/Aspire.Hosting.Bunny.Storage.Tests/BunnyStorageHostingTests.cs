@@ -20,7 +20,7 @@ public sealed class BunnyStorageHostingTests
         IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
             .RunAsEmulator()
             .AddBlobContainer("media", "media")
-            .PublishToBunny("my-zone", apiKey);
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
 
         Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageDeploymentAnnotation>().SingleOrDefault());
         Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageOutputsAnnotation>().SingleOrDefault());
@@ -36,8 +36,8 @@ public sealed class BunnyStorageHostingTests
             .RunAsEmulator()
             .AddBlobContainer("media", "media");
 
-        media.PublishToBunny("first-zone", apiKey);
-        media.PublishToBunny("second-zone", apiKey);
+        media.PublishToBunny("first-zone", apiKey, configure: options => options.PublicBaseUrl = "https://first-zone.b-cdn.net");
+        media.PublishToBunny("second-zone", apiKey, configure: options => options.PublicBaseUrl = "https://second-zone.b-cdn.net");
 
         Assert.Single(media.Resource.Annotations.OfType<BunnyStorageDeploymentAnnotation>());
         Assert.Single(media.Resource.Annotations.OfType<PipelineStepAnnotation>());
@@ -54,8 +54,28 @@ public sealed class BunnyStorageHostingTests
             .AddBlobContainer("media", "media");
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
-            media.PublishToBunny("zone", apiKey, configure: options => options.SetReplicationRegions(BunnyStorageRegion.De)));
+            media.PublishToBunny("zone", apiKey, configure: options =>
+            {
+                options.PublicBaseUrl = "https://zone.b-cdn.net";
+                options.SetReplicationRegions(BunnyStorageRegion.De);
+            }));
         Assert.Contains("primary region", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OptionsValidationRejectsMissingPublicReadConfiguration()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            media.PublishToBunny("zone", apiKey));
+
+        Assert.Contains("PublicBaseUrl", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("CreatePullZone", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -119,7 +139,10 @@ public sealed class BunnyStorageHostingTests
         IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
             .RunAsEmulator()
             .AddBlobContainer("media", "media");
-        media.PublishToBunny("zone", app.AddParameter("bunny-api-key", secret: true));
+        media.PublishToBunny(
+            "zone",
+            app.AddParameter("bunny-api-key", secret: true),
+            configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
         BunnyStorageOutputs outputs = media.GetBunnyStorageOutputs()!;
         BunnyStorageResolvedDeployment deployment = CreateDeployment();
         FakeBunnyStorageManagementClient client = new();
