@@ -52,12 +52,34 @@ public sealed class BunnyStorageCreateFlow
         IReadOnlyList<BunnyPullZoneDetails> pullZones = await _client.ListPullZonesAsync(cancellationToken).ConfigureAwait(false);
         BunnyPullZoneDetails? existing = pullZones.FirstOrDefault(zone =>
             string.Equals(zone.Name, pullZoneName, StringComparison.OrdinalIgnoreCase));
+        string originUrl = $"{deployment.StorageEndpoint.TrimEnd('/')}/{Uri.EscapeDataString(zone.Name)}/";
         if (existing is not null)
         {
+            ValidateExistingPullZone(existing, zone, originUrl);
             return existing;
         }
 
-        string originUrl = $"{deployment.StorageEndpoint.TrimEnd('/')}/{Uri.EscapeDataString(zone.Name)}/";
         return await _client.CreatePullZoneAsync(pullZoneName, originUrl, zone.Id, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static void ValidateExistingPullZone(BunnyPullZoneDetails existing, BunnyStorageZoneDetails zone, string expectedOriginUrl)
+    {
+        if (existing.StorageZoneId is not null && existing.StorageZoneId != zone.Id)
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage pull zone '{existing.Name}' is linked to storage zone id '{existing.StorageZoneId}', expected '{zone.Id}'.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(existing.OriginUrl)
+            && !string.Equals(NormalizeOrigin(existing.OriginUrl), NormalizeOrigin(expectedOriginUrl), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage pull zone '{existing.Name}' origin is '{existing.OriginUrl}', expected '{expectedOriginUrl}'.");
+        }
+    }
+
+    private static string NormalizeOrigin(string originUrl)
+    {
+        return originUrl.TrimEnd('/') + "/";
     }
 }

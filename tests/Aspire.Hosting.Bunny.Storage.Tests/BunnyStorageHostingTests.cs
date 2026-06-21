@@ -121,6 +121,25 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public async Task PullZoneAdoptionFailsWhenExistingZoneTargetsDifferentStorageZone()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.PullZones.Add(new BunnyPullZoneDetails
+        {
+            Id = 10,
+            Name = "my-zone",
+            StorageZoneId = 999,
+            OriginUrl = "https://storage.bunnycdn.com/other-zone/",
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("linked to storage zone", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task CreateOrAdoptAdoptsExistingAndDetectsImmutableDrift()
     {
         FakeBunnyStorageManagementClient client = new();
