@@ -328,6 +328,32 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public void OutputsRejectMissingStoragePassword()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+        media.PublishToBunny(
+            "zone",
+            app.AddParameter("bunny-api-key", secret: true),
+            configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        BunnyStorageOutputs outputs = media.GetBunnyStorageOutputs()!;
+        BunnyStorageZoneDetails zone = new()
+        {
+            Id = 123,
+            Name = "my-zone",
+            Password = "",
+            Region = "DE",
+        };
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            outputs.Populate(zone, pullZone: null, storageEndpoint: "https://storage.bunnycdn.com", publicBaseUrl: "https://my-zone.b-cdn.net"));
+
+        Assert.Contains("password", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ManagementClientRejectsMissingHttpClientBaseAddress()
     {
         ArgumentException exception = Assert.Throws<ArgumentException>(() =>

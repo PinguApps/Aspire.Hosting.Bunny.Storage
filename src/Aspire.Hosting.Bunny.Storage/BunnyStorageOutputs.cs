@@ -44,6 +44,12 @@ public sealed class BunnyStorageOutputs
 
     internal void Populate(BunnyStorageZoneDetails zone, BunnyPullZoneDetails? pullZone, string storageEndpoint, string publicBaseUrl)
     {
+        if (string.IsNullOrWhiteSpace(zone.Password))
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage zone '{zone.Name}' did not include a storage password/access key in the provider response.");
+        }
+
         StorageZoneId.SetValue(zone.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
         StorageZoneName.SetValue(zone.Name);
         StorageEndpoint.SetValue(storageEndpoint);
