@@ -27,8 +27,11 @@ app.MapGet("/", (IObjectStorage storage) =>
 
 app.MapPost("/upload", async (IFormFile file, IObjectStorage storage, CancellationToken cancellationToken) =>
 {
+    string contentType = string.IsNullOrWhiteSpace(file.ContentType)
+        ? "application/octet-stream"
+        : file.ContentType;
     await using Stream stream = file.OpenReadStream();
-    await storage.PutAsync("uploads/latest", stream, file.ContentType, cancellationToken);
+    await storage.PutAsync("uploads/latest", stream, contentType, cancellationToken);
     return Results.Redirect("/");
 }).DisableAntiforgery();
 
