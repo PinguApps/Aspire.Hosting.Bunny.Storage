@@ -121,6 +121,26 @@ public sealed class ObjectStorageRegistrationTests
         Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
     }
 
+    [Fact]
+    public async Task BunnyObjectStorageOpenReadDisposesResponseWhenReturnedStreamIsDisposed()
+    {
+        TrackingContent content = new([1, 2, 3]);
+        CapturingHandler handler = new(content: content);
+        BunnyObjectStorage storage = new(
+            new HttpClient(handler),
+            "my-zone",
+            "storage-password",
+            "https://storage.bunnycdn.com",
+            "https://cdn.example.com");
+
+        await using Stream stream = await storage.OpenReadAsync("folder/file.png");
+        Assert.False(content.IsDisposed);
+
+        await stream.DisposeAsync();
+
+        Assert.True(content.IsDisposed);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("https://example.com/file.png")]
@@ -143,10 +163,12 @@ public sealed class ObjectStorageRegistrationTests
     private sealed class CapturingHandler : HttpMessageHandler
     {
         private readonly HttpStatusCode _statusCode;
+        private readonly HttpContent? _content;
 
-        public CapturingHandler(HttpStatusCode statusCode = HttpStatusCode.OK)
+        public CapturingHandler(HttpStatusCode statusCode = HttpStatusCode.OK, HttpContent? content = null)
         {
             _statusCode = statusCode;
+            _content = content;
         }
 
         public List<HttpRequestMessage> Requests { get; } = [];
@@ -156,8 +178,24 @@ public sealed class ObjectStorageRegistrationTests
             Requests.Add(request);
             return Task.FromResult(new HttpResponseMessage(_statusCode)
             {
-                Content = new ByteArrayContent([]),
+                Content = _content ?? new ByteArrayContent([]),
             });
+        }
+    }
+
+    private sealed class TrackingContent : ByteArrayContent
+    {
+        public TrackingContent(byte[] content)
+            : base(content)
+        {
+        }
+
+        public bool IsDisposed { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            IsDisposed = true;
+            base.Dispose(disposing);
         }
     }
 }

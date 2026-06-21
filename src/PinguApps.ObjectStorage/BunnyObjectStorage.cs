@@ -50,13 +50,22 @@ public sealed class BunnyObjectStorage : IObjectStorage
     /// <inheritdoc />
     public async Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default)
     {
-        HttpRequestMessage request = CreateRequest(HttpMethod.Get, key);
+        using HttpRequestMessage request = CreateRequest(HttpMethod.Get, key);
         HttpResponseMessage response = await _httpClient
             .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
-        request.Dispose();
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            response.EnsureSuccessStatusCode();
+            Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            return new ResponseDisposingStream(stream, response);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
 
     /// <inheritdoc />
@@ -99,5 +108,59 @@ public sealed class BunnyObjectStorage : IObjectStorage
         HttpRequestMessage request = new(method, uri);
         request.Headers.Add("AccessKey", _accessKey);
         return request;
+    }
+
+    private sealed class ResponseDisposingStream : Stream
+    {
+        private readonly Stream _inner;
+        private readonly HttpResponseMessage _response;
+
+        public ResponseDisposingStream(Stream inner, HttpResponseMessage response)
+        {
+            _inner = inner;
+            _response = response;
+        }
+
+        public override bool CanRead => _inner.CanRead;
+
+        public override bool CanSeek => _inner.CanSeek;
+
+        public override bool CanWrite => _inner.CanWrite;
+
+        public override long Length => _inner.Length;
+
+        public override long Position
+        {
+            get => _inner.Position;
+            set => _inner.Position = value;
+        }
+
+        public override void Flush() => _inner.Flush();
+
+        public override int Read(byte[] buffer, int offset, int count) => _inner.Read(buffer, offset, count);
+
+        public override long Seek(long offset, SeekOrigin origin) => _inner.Seek(offset, origin);
+
+        public override void SetLength(long value) => _inner.SetLength(value);
+
+        public override void Write(byte[] buffer, int offset, int count) => _inner.Write(buffer, offset, count);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _inner.Dispose();
+                _response.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        public override async ValueTask DisposeAsync()
+        {
+            await _inner.DisposeAsync().ConfigureAwait(false);
+            _response.Dispose();
+            await base.DisposeAsync().ConfigureAwait(false);
+        }
     }
 }
