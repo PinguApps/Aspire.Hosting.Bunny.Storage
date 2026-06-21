@@ -79,6 +79,11 @@ public sealed class BunnyStorageDeploymentOptions
             throw new InvalidOperationException("The Bunny Storage primary region is not supported.");
         }
 
+        if (Region == BunnyStorageRegion.Syd)
+        {
+            throw new InvalidOperationException("Bunny Storage region SYD is only supported as a replication region, not as the primary region.");
+        }
+
         foreach (BunnyStorageRegion region in _replicationRegions)
         {
             if (!Enum.IsDefined(region))

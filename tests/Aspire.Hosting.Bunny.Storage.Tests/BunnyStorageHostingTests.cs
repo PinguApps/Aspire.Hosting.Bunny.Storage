@@ -63,6 +63,24 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public void OptionsValidationRejectsSydAsPrimaryRegion()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            media.PublishToBunny("zone", apiKey, configure: options =>
+            {
+                options.PublicBaseUrl = "https://zone.b-cdn.net";
+                options.Region = BunnyStorageRegion.Syd;
+            }));
+        Assert.Contains("primary region", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void OptionsValidationRejectsMissingPublicReadConfiguration()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
