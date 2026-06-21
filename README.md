@@ -13,7 +13,7 @@ var bunnyApiKey = builder.AddParameter("bunny-api-key", secret: true);
 var media = builder.AddAzureStorage("storage")
     .RunAsEmulator()
     .AddBlobContainer("media", "media")
-    .PublishToBunny("myapp-media", bunnyApiKey, options =>
+    .PublishToBunny("myapp-media", bunnyApiKey, configure: options =>
     {
         options.Region = BunnyStorageRegion.De;
         options.CreatePullZone = true;

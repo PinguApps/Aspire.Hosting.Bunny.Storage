@@ -11,7 +11,7 @@ internal static class BunnyStorageAppHostSnippets
         IResourceBuilder<AzureBlobStorageContainerResource> media = builder.AddAzureStorage("storage")
             .RunAsEmulator()
             .AddBlobContainer("media", "media")
-            .PublishToBunny("myapp-media", bunnyApiKey, options =>
+            .PublishToBunny("myapp-media", bunnyApiKey, configure: options =>
             {
                 options.Region = BunnyStorageRegion.De;
                 options.CreatePullZone = true;
