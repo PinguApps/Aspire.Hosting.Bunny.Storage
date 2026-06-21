@@ -28,7 +28,7 @@ public sealed class AzureBlobObjectStorage : IObjectStorage
         ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
 
         string normalized = ObjectStorageKey.Normalize(key);
-        await _container.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await EnsurePublicContainerAsync(cancellationToken).ConfigureAwait(false);
         BlobClient blob = _container.GetBlobClient(normalized);
         BlobUploadOptions options = new()
         {
@@ -64,6 +64,12 @@ public sealed class AzureBlobObjectStorage : IObjectStorage
 
     /// <inheritdoc />
     public string GetPublicUrl(string key) => ObjectStorageKey.AppendEscaped(_publicBaseUrl, key);
+
+    private async Task EnsurePublicContainerAsync(CancellationToken cancellationToken)
+    {
+        await _container.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: cancellationToken).ConfigureAwait(false);
+        await _container.SetAccessPolicyAsync(PublicAccessType.Blob, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 
     private static string SanitizeConnectionString(string connectionString)
     {
