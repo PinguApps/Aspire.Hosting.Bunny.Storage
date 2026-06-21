@@ -93,8 +93,7 @@ internal static class BunnyStorageDeploymentPipeline
             .ExecuteAsync(deployment, ownership, cancellationToken)
             .ConfigureAwait(false);
 
-        BunnyStorageZoneDetails reconciled = BunnyStorageReconciler.Reconcile(deployment, result.StorageZone);
-        return result with { StorageZone = reconciled };
+        return result;
     }
 
     internal static string ResolvePublicBaseUrl(BunnyStorageResolvedDeployment deployment, BunnyPullZoneDetails? pullZone)

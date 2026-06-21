@@ -29,6 +29,7 @@ public sealed class BunnyStorageCreateFlow
             created = false;
         }
 
+        zone = BunnyStorageReconciler.Reconcile(deployment, zone);
         BunnyPullZoneDetails? pullZone = await EnsurePullZoneAsync(deployment, zone, cancellationToken).ConfigureAwait(false);
         BunnyStorageRemoteIdentityState remoteIdentity = new(
             zone.Name,

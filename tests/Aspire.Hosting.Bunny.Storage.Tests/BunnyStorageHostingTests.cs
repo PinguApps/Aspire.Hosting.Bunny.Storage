@@ -152,6 +152,21 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public async Task ImmutableDriftFailsBeforePullZoneWork()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails { Id = 1, Name = "my-zone", Password = "password", Region = "NY" });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("immutable drift", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("GET /pullzone", client.Interactions);
+        Assert.DoesNotContain("POST /pullzone", client.Interactions);
+    }
+
+    [Fact]
     public async Task AccessKeyOutputIsSecretAndOutputsPopulate()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
