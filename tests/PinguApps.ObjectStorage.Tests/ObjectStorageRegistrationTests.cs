@@ -80,9 +80,9 @@ public sealed class ObjectStorageRegistrationTests
         await storage.PutAsync("/folder/a b.txt", new MemoryStream([1, 2, 3]), "text/plain; charset=utf-8");
 
         Assert.Equal(HttpMethod.Put, handler.Requests[0].Method);
-        Assert.Equal("https://ny.storage.bunnycdn.com/my-zone/folder/a%20b.txt", handler.Requests[0].RequestUri!.AbsoluteUri);
-        Assert.Equal("storage-password", handler.Requests[0].Headers.GetValues("AccessKey").Single());
-        Assert.Equal("text/plain; charset=utf-8", handler.Requests[0].Content!.Headers.ContentType!.ToString());
+        Assert.Equal("https://ny.storage.bunnycdn.com/my-zone/folder/a%20b.txt", handler.Requests[0].RequestUri.AbsoluteUri);
+        Assert.Equal("storage-password", handler.Requests[0].AccessKey);
+        Assert.Equal("text/plain; charset=utf-8", handler.Requests[0].ContentType);
         Assert.Equal("https://cdn.example.com/assets/folder/a%20b.txt", storage.GetPublicUrl("folder/a b.txt"));
     }
 
@@ -101,7 +101,7 @@ public sealed class ObjectStorageRegistrationTests
 
         Assert.True(exists);
         Assert.Equal(HttpMethod.Get, handler.Requests[0].Method);
-        Assert.Equal("https://storage.bunnycdn.com/my-zone/folder/file.png", handler.Requests[0].RequestUri!.AbsoluteUri);
+        Assert.Equal("https://storage.bunnycdn.com/my-zone/folder/file.png", handler.Requests[0].RequestUri.AbsoluteUri);
     }
 
     [Fact]
@@ -171,15 +171,35 @@ public sealed class ObjectStorageRegistrationTests
             _content = content;
         }
 
-        public List<HttpRequestMessage> Requests { get; } = [];
+        public List<RequestSnapshot> Requests { get; } = [];
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Requests.Add(request);
+            Requests.Add(RequestSnapshot.Create(request));
             return Task.FromResult(new HttpResponseMessage(_statusCode)
             {
                 Content = _content ?? new ByteArrayContent([]),
             });
+        }
+    }
+
+    private sealed record RequestSnapshot(
+        HttpMethod Method,
+        Uri RequestUri,
+        string? AccessKey,
+        string? ContentType)
+    {
+        public static RequestSnapshot Create(HttpRequestMessage request)
+        {
+            string? accessKey = request.Headers.TryGetValues("AccessKey", out IEnumerable<string>? values)
+                ? values.SingleOrDefault()
+                : null;
+
+            return new RequestSnapshot(
+                request.Method,
+                request.RequestUri ?? throw new InvalidOperationException("Test request URI was missing."),
+                accessKey,
+                request.Content?.Headers.ContentType?.ToString());
         }
     }
 
