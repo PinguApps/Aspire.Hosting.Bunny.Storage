@@ -6,5 +6,6 @@ public enum BunnyStorageProviderFailureKind
     NotFound,
     Conflict,
     Validation,
+    StorageZoneBeingDeleted,
     Unexpected,
 }

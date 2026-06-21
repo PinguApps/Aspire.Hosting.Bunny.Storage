@@ -11,6 +11,7 @@ public sealed class BunnyStorageRemoteIdentityResolver
     public async Task<BunnyStorageRemoteIdentityStateResult> ResolveAsync(
         string storageZoneName,
         BunnyStorageRemoteIdentityState? cachedIdentity,
+        string? deploymentStateSectionName,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<BunnyStorageZoneDetails> zones = await _client.ListStorageZonesAsync(cancellationToken).ConfigureAwait(false);
@@ -28,16 +29,23 @@ public sealed class BunnyStorageRemoteIdentityResolver
             && !string.Equals(byId.Name, storageZoneName, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidOperationException(
-                $"Bunny Storage resource was previously deployed as '{cachedIdentity.StorageZoneName}' with id '{cachedIdentity.ProviderStorageZoneId}', but the AppHost now requests '{storageZoneName}'. Rename requires explicit state cleanup.");
+                $"Bunny Storage resource was previously deployed as '{cachedIdentity.StorageZoneName}' with id '{cachedIdentity.ProviderStorageZoneId}', but the AppHost now requests '{storageZoneName}'. Rename requires explicit deployment-state cleanup{FormatSectionName(deploymentStateSectionName)}.");
         }
 
         if (byId is null)
         {
             throw new InvalidOperationException(
-                $"Bunny Storage resource was previously deployed as '{cachedIdentity.StorageZoneName}' with id '{cachedIdentity.ProviderStorageZoneId}', but that storage zone no longer exists. Delete the deployment state before adopting or recreating a different Bunny Storage zone.");
+                $"Bunny Storage resource was previously deployed as '{cachedIdentity.StorageZoneName}' with id '{cachedIdentity.ProviderStorageZoneId}', but that storage zone no longer exists. Delete the deployment-state section{FormatSectionName(deploymentStateSectionName)} before adopting or recreating a different Bunny Storage zone.");
         }
 
         return new BunnyStorageRemoteIdentityStateResult(byId, ResolvedFromCachedIdentity: true);
+    }
+
+    private static string FormatSectionName(string? deploymentStateSectionName)
+    {
+        return string.IsNullOrWhiteSpace(deploymentStateSectionName)
+            ? ""
+            : $" '{deploymentStateSectionName}'";
     }
 }
 

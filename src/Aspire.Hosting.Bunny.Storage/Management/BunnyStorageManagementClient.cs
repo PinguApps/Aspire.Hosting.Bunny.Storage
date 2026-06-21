@@ -99,6 +99,13 @@ public sealed class BunnyStorageManagementClient : IBunnyStorageManagementClient
         }
 
         string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        if (IsStorageZoneBeingDeleted(response.StatusCode, body))
+        {
+            throw new BunnyStorageProviderException(
+                BunnyStorageProviderFailureKind.StorageZoneBeingDeleted,
+                "Bunny Storage zone name is still being deleted and cannot be recreated yet. Wait for Bunny to release the name, then retry deployment.");
+        }
+
         BunnyStorageProviderFailureKind kind = response.StatusCode switch
         {
             HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => BunnyStorageProviderFailureKind.Authentication,
@@ -108,5 +115,12 @@ public sealed class BunnyStorageManagementClient : IBunnyStorageManagementClient
             _ => BunnyStorageProviderFailureKind.Unexpected,
         };
         throw new BunnyStorageProviderException(kind, $"Bunny API request failed with {(int)response.StatusCode}: {body}");
+    }
+
+    private static bool IsStorageZoneBeingDeleted(HttpStatusCode statusCode, string body)
+    {
+        return statusCode == HttpStatusCode.BadRequest
+            && body.Contains("\"ErrorKey\":\"storagezone.name_taken\"", StringComparison.OrdinalIgnoreCase)
+            && body.Contains("currently being deleted", StringComparison.OrdinalIgnoreCase);
     }
 }

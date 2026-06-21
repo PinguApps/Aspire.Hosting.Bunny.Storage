@@ -1,4 +1,5 @@
 #pragma warning disable ASPIREPIPELINES001
+#pragma warning disable ASPIREPIPELINES002
 
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
@@ -6,6 +7,8 @@ using Aspire.Hosting.Bunny.Storage;
 using Aspire.Hosting.Bunny.Storage.Deployment;
 using Aspire.Hosting.Bunny.Storage.Management;
 using Aspire.Hosting.Pipelines;
+using System.Net;
+using System.Text.Json.Nodes;
 
 namespace Aspire.Hosting.Bunny.Storage.Tests;
 
@@ -116,6 +119,34 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public async Task CreateFlowRetriesWhenStorageZoneNameIsBeingDeleted()
+    {
+        FakeBunnyStorageManagementClient client = new()
+        {
+            StorageZoneCreateFailuresBeforeSuccess = 2,
+        };
+        List<TimeSpan> delays = [];
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+
+        BunnyStorageCreateFlowResult result = await new BunnyStorageCreateFlow(
+                client,
+                (delay, _) =>
+                {
+                    delays.Add(delay);
+                    return Task.CompletedTask;
+                },
+                [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)])
+            .ExecuteAsync(
+                deployment,
+                new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, ExistingZone: null),
+                CancellationToken.None);
+
+        Assert.True(result.Created);
+        Assert.Equal([TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)], delays);
+        Assert.Equal(3, client.Interactions.Count(interaction => interaction == "POST /storagezone"));
+    }
+
+    [Fact]
     public async Task ExistingOnlyFailsIfMissing()
     {
         FakeBunnyStorageManagementClient client = new();
@@ -219,6 +250,38 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public async Task MissingCachedIdentityMessageIncludesDeploymentStateSection()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        BunnyStorageRemoteIdentityState cachedIdentity = new("my-zone", "1");
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new BunnyStorageRemoteIdentityResolver(client).ResolveAsync(
+                "my-zone",
+                cachedIdentity,
+                "Aspire.Hosting.Bunny.Storage.RemoteIdentity.media",
+                CancellationToken.None));
+
+        Assert.Contains("Aspire.Hosting.Bunny.Storage.RemoteIdentity.media", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ClearCacheIgnoresSavedRemoteIdentity()
+    {
+        FakeDeploymentStateManager stateManager = new();
+        BunnyStorageRemoteIdentityDeploymentStateStore store = new(stateManager);
+        await store.SaveAsync("media", new BunnyStorageRemoteIdentityState("my-zone", "1"), CancellationToken.None);
+
+        BunnyStorageRemoteIdentityState? cachedIdentity = await BunnyStorageDeploymentPipeline.LoadCachedIdentityAsync(
+            store,
+            "media",
+            clearCache: true,
+            CancellationToken.None);
+
+        Assert.Null(cachedIdentity);
+    }
+
+    [Fact]
     public async Task AccessKeyOutputIsSecretAndOutputsPopulate()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
@@ -257,6 +320,24 @@ public sealed class BunnyStorageHostingTests
             new BunnyStorageManagementClient(new HttpClient { BaseAddress = new Uri("https://api.bunny.net/") }, credentials: null!));
     }
 
+    [Fact]
+    public async Task ManagementClientClassifiesDeletingStorageZoneName()
+    {
+        HttpClient httpClient = new(new ResponseHandler(new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""{"ErrorKey":"storagezone.name_taken","Field":"Name","Message":"The storage zone is currently being deleted."}"""),
+        }))
+        {
+            BaseAddress = new Uri("https://api.bunny.net/"),
+        };
+        BunnyStorageManagementClient client = new(httpClient, new BunnyStorageManagementCredentials("account-api-key"));
+
+        BunnyStorageProviderException exception = await Assert.ThrowsAsync<BunnyStorageProviderException>(() =>
+            client.CreateStorageZoneAsync("my-zone", "DE", [], CancellationToken.None));
+
+        Assert.Equal(BunnyStorageProviderFailureKind.StorageZoneBeingDeleted, exception.FailureKind);
+    }
+
     private static BunnyStorageResolvedDeployment CreateDeployment(
         BunnyStorageOwnershipMode ownershipMode = BunnyStorageOwnershipMode.CreateOrAdopt,
         bool createPullZone = false)
@@ -284,6 +365,8 @@ public sealed class BunnyStorageHostingTests
 
         public List<BunnyPullZoneDetails> PullZones { get; } = [];
 
+        public int StorageZoneCreateFailuresBeforeSuccess { get; set; }
+
         public Task<IReadOnlyList<BunnyStorageZoneDetails>> ListStorageZonesAsync(CancellationToken cancellationToken)
         {
             Interactions.Add("GET /storagezone");
@@ -293,6 +376,14 @@ public sealed class BunnyStorageHostingTests
         public Task<BunnyStorageZoneDetails> CreateStorageZoneAsync(string name, string region, IReadOnlyList<string> replicationRegions, CancellationToken cancellationToken)
         {
             Interactions.Add("POST /storagezone");
+            if (StorageZoneCreateFailuresBeforeSuccess > 0)
+            {
+                StorageZoneCreateFailuresBeforeSuccess--;
+                throw new BunnyStorageProviderException(
+                    BunnyStorageProviderFailureKind.StorageZoneBeingDeleted,
+                    "Bunny Storage zone name is still being deleted.");
+            }
+
             BunnyStorageZoneDetails zone = new()
             {
                 Id = 123,
@@ -323,6 +414,50 @@ public sealed class BunnyStorageHostingTests
             };
             PullZones.Add(pullZone);
             return Task.FromResult(pullZone);
+        }
+    }
+
+    private sealed class ResponseHandler(HttpResponseMessage response) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(response);
+        }
+    }
+
+    private sealed class FakeDeploymentStateManager : IDeploymentStateManager
+    {
+        private readonly Dictionary<string, DeploymentStateSection> _sections = [];
+
+        public string? StateFilePath => null;
+
+        public Task<DeploymentStateSection> AcquireSectionAsync(string sectionName, CancellationToken cancellationToken)
+        {
+            if (!_sections.TryGetValue(sectionName, out DeploymentStateSection? section))
+            {
+                section = new DeploymentStateSection(sectionName, new JsonObject(), version: 0);
+                _sections[sectionName] = section;
+            }
+
+            return Task.FromResult(section);
+        }
+
+        public Task SaveSectionAsync(DeploymentStateSection section, CancellationToken cancellationToken)
+        {
+            _sections[section.SectionName] = section;
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteSectionAsync(DeploymentStateSection section, CancellationToken cancellationToken)
+        {
+            _sections.Remove(section.SectionName);
+            return Task.CompletedTask;
+        }
+
+        public Task ClearAllStateAsync(CancellationToken cancellationToken)
+        {
+            _sections.Clear();
+            return Task.CompletedTask;
         }
     }
 }

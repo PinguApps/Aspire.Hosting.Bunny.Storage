@@ -33,5 +33,5 @@ public sealed class BunnyStorageRemoteIdentityDeploymentStateStore
         await _stateManager.SaveSectionAsync(section, cancellationToken).ConfigureAwait(false);
     }
 
-    private static string BuildSectionName(string resourceName) => $"{SectionPrefix}.{resourceName}";
+    public static string BuildSectionName(string resourceName) => $"{SectionPrefix}.{resourceName}";
 }

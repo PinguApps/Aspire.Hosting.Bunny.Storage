@@ -8,6 +8,7 @@ using Aspire.Hosting.Bunny.Storage.Management;
 using Aspire.Hosting.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Aspire.Hosting.Bunny.Storage;
 
@@ -41,18 +42,25 @@ internal static class BunnyStorageDeploymentPipeline
 
         BunnyStorageRemoteIdentityDeploymentStateStore identityStore = new(
             context.Services.GetRequiredService<IDeploymentStateManager>());
+        bool clearCache = context.Services.GetRequiredService<IOptions<PipelineOptions>>().Value.ClearCache;
         BunnyStorageRemoteIdentityState? cachedIdentity =
-            await identityStore.LoadAsync(resource.Name, context.CancellationToken).ConfigureAwait(false);
+            await LoadCachedIdentityAsync(identityStore, resource.Name, clearCache, context.CancellationToken).ConfigureAwait(false);
+        string deploymentStateSectionName = BunnyStorageRemoteIdentityDeploymentStateStore.BuildSectionName(resource.Name);
 
         BunnyStorageCreateFlowResult result = await ExecuteCoreAsync(
             deployment,
             client,
             cachedIdentity,
+            deploymentStateSectionName,
             progress => Report(context.Logger, progress),
             context.CancellationToken)
             .ConfigureAwait(false);
 
-        await identityStore.SaveAsync(resource.Name, result.RemoteIdentity, context.CancellationToken).ConfigureAwait(false);
+        if (!clearCache)
+        {
+            await identityStore.SaveAsync(resource.Name, result.RemoteIdentity, context.CancellationToken).ConfigureAwait(false);
+        }
+
         string publicBaseUrl = ResolvePublicBaseUrl(deployment, result.PullZone);
         resource.TryGetBunnyStorageOutputs()?.Populate(result.StorageZone, result.PullZone, deployment.StorageEndpoint, publicBaseUrl);
     }
@@ -63,13 +71,25 @@ internal static class BunnyStorageDeploymentPipeline
         BunnyStorageRemoteIdentityState? cachedIdentity,
         CancellationToken cancellationToken)
     {
-        return await ExecuteCoreAsync(deployment, client, cachedIdentity, progressReporter: null, cancellationToken).ConfigureAwait(false);
+        return await ExecuteCoreAsync(deployment, client, cachedIdentity, deploymentStateSectionName: null, progressReporter: null, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task<BunnyStorageRemoteIdentityState?> LoadCachedIdentityAsync(
+        BunnyStorageRemoteIdentityDeploymentStateStore identityStore,
+        string resourceName,
+        bool clearCache,
+        CancellationToken cancellationToken)
+    {
+        return clearCache
+            ? null
+            : await identityStore.LoadAsync(resourceName, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<BunnyStorageCreateFlowResult> ExecuteCoreAsync(
         BunnyStorageResolvedDeployment deployment,
         IBunnyStorageManagementClient client,
         BunnyStorageRemoteIdentityState? cachedIdentity,
+        string? deploymentStateSectionName,
         Action<BunnyStorageDeploymentProgress>? progressReporter,
         CancellationToken cancellationToken)
     {
@@ -81,7 +101,7 @@ internal static class BunnyStorageDeploymentPipeline
             providerStorageZoneId: null));
 
         BunnyStorageRemoteIdentityStateResult remoteIdentity = await new BunnyStorageRemoteIdentityResolver(client)
-            .ResolveAsync(deployment.StorageZoneName, cachedIdentity, cancellationToken)
+            .ResolveAsync(deployment.StorageZoneName, cachedIdentity, deploymentStateSectionName, cancellationToken)
             .ConfigureAwait(false);
 
         BunnyStorageOwnershipResolutionResult ownership = BunnyStorageOwnershipResolver.Resolve(

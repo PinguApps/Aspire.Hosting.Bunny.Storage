@@ -4,9 +4,35 @@ namespace Aspire.Hosting.Bunny.Storage.Deployment;
 
 public sealed class BunnyStorageCreateFlow
 {
-    private readonly IBunnyStorageManagementClient _client;
+    private static readonly TimeSpan[] _storageZoneDeletionRetryDelays =
+    [
+        TimeSpan.FromSeconds(10),
+        TimeSpan.FromSeconds(20),
+        TimeSpan.FromSeconds(30),
+    ];
 
-    public BunnyStorageCreateFlow(IBunnyStorageManagementClient client) => _client = client;
+    private readonly IBunnyStorageManagementClient _client;
+    private readonly Func<TimeSpan, CancellationToken, Task> _delayAsync;
+    private readonly IReadOnlyList<TimeSpan> _storageZoneDeletionDelays;
+
+    public BunnyStorageCreateFlow(IBunnyStorageManagementClient client)
+        : this(client, static (delay, cancellationToken) => Task.Delay(delay, cancellationToken), _storageZoneDeletionRetryDelays)
+    {
+    }
+
+    internal BunnyStorageCreateFlow(
+        IBunnyStorageManagementClient client,
+        Func<TimeSpan, CancellationToken, Task> delayAsync,
+        IReadOnlyList<TimeSpan> storageZoneDeletionDelays)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(delayAsync);
+        ArgumentNullException.ThrowIfNull(storageZoneDeletionDelays);
+
+        _client = client;
+        _delayAsync = delayAsync;
+        _storageZoneDeletionDelays = storageZoneDeletionDelays;
+    }
 
     public async Task<BunnyStorageCreateFlowResult> ExecuteAsync(
         BunnyStorageResolvedDeployment deployment,
@@ -18,9 +44,7 @@ public sealed class BunnyStorageCreateFlow
         if (ownership.Action == BunnyStorageOwnershipResolutionAction.Create)
         {
             string[] replicationRegions = [.. deployment.Options.ReplicationRegions.Select(region => region.ToProviderCode())];
-            zone = await _client
-                .CreateStorageZoneAsync(deployment.StorageZoneName, deployment.Options.Region.ToProviderCode(), replicationRegions, cancellationToken)
-                .ConfigureAwait(false);
+            zone = await CreateStorageZoneAsync(deployment, replicationRegions, cancellationToken).ConfigureAwait(false);
             created = true;
         }
         else
@@ -36,6 +60,28 @@ public sealed class BunnyStorageCreateFlow
             zone.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
         return new BunnyStorageCreateFlowResult(zone, pullZone, created, remoteIdentity);
+    }
+
+    private async Task<BunnyStorageZoneDetails> CreateStorageZoneAsync(
+        BunnyStorageResolvedDeployment deployment,
+        IReadOnlyList<string> replicationRegions,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await _client
+                    .CreateStorageZoneAsync(deployment.StorageZoneName, deployment.Options.Region.ToProviderCode(), replicationRegions, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (BunnyStorageProviderException exception)
+                when (exception.FailureKind == BunnyStorageProviderFailureKind.StorageZoneBeingDeleted
+                    && attempt < _storageZoneDeletionDelays.Count)
+            {
+                await _delayAsync(_storageZoneDeletionDelays[attempt], cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     private async Task<BunnyPullZoneDetails?> EnsurePullZoneAsync(
