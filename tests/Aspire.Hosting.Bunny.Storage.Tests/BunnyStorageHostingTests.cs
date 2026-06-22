@@ -9,6 +9,7 @@ using Aspire.Hosting.Bunny.Storage.Management;
 using Aspire.Hosting.Pipelines;
 using Aspire.Hosting.Publishing;
 using System.Net;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -21,15 +22,20 @@ public sealed class BunnyStorageHostingTests
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
         IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> logs = storage.AddBlobContainer("logs", "logs");
 
-        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
-            .RunAsEmulator()
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage
             .AddBlobContainer("media", "media")
             .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
 
         Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageDeploymentAnnotation>().SingleOrDefault());
         Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageOutputsAnnotation>().SingleOrDefault());
         Assert.Contains(media.Resource.Annotations, annotation => annotation is PipelineStepAnnotation);
+        IReadOnlyCollection<AzureBlobStorageContainerResource> azureBlobContainers = GetAzureBlobContainers(storage.Resource);
+        Assert.DoesNotContain(media.Resource, azureBlobContainers);
+        Assert.Contains(logs.Resource, azureBlobContainers);
     }
 
     [Fact]
@@ -500,6 +506,13 @@ public sealed class BunnyStorageHostingTests
             ownershipMode,
             new BunnyStorageManagementCredentials("account-api-key"),
             options);
+    }
+
+    private static IReadOnlyCollection<AzureBlobStorageContainerResource> GetAzureBlobContainers(AzureStorageResource resource)
+    {
+        PropertyInfo property = typeof(AzureStorageResource).GetProperty("BlobContainers", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("BlobContainers property was not found.");
+        return (IReadOnlyCollection<AzureBlobStorageContainerResource>)property.GetValue(resource)!;
     }
 
     private sealed class FakeBunnyStorageManagementClient : IBunnyStorageManagementClient

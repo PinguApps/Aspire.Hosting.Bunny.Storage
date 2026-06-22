@@ -3,11 +3,16 @@
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
 using Aspire.Hosting.Pipelines;
+using System.Reflection;
 
 namespace Aspire.Hosting.Bunny.Storage;
 
 public static class BunnyStorageBuilderExtensions
 {
+    private static readonly PropertyInfo _azureStorageBlobContainersProperty =
+        typeof(AzureStorageResource).GetProperty("BlobContainers", BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException("Aspire Azure Storage no longer exposes its blob-container provisioning collection.");
+
     [AspireExportIgnore(Reason = "C# callback overloads are not a stable guest-language transport contract.")]
     public static IResourceBuilder<AzureBlobStorageContainerResource> PublishToBunny(
         this IResourceBuilder<AzureBlobStorageContainerResource> builder,
@@ -54,6 +59,7 @@ public static class BunnyStorageBuilderExtensions
 
         RemoveExistingBunnyPipelineStep(builder.Resource);
         global::Aspire.Hosting.ResourceBuilderExtensions.ExcludeFromManifest(builder);
+        DetachFromAzureProvisioning(builder.Resource);
 
         builder.WithAnnotation(
             new BunnyStorageDeploymentAnnotation(storageZoneName, apiKey, ownershipMode, options),
@@ -118,5 +124,16 @@ public static class BunnyStorageBuilderExtensions
 
             return;
         }
+    }
+
+    private static void DetachFromAzureProvisioning(AzureBlobStorageContainerResource resource)
+    {
+        object? value = _azureStorageBlobContainersProperty.GetValue(resource.Parent.Parent);
+        if (value is not ICollection<AzureBlobStorageContainerResource> blobContainers)
+        {
+            throw new InvalidOperationException("Aspire Azure Storage blob-container provisioning collection has an unexpected shape.");
+        }
+
+        blobContainers.Remove(resource);
     }
 }
