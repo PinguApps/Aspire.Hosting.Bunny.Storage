@@ -62,6 +62,7 @@ public static class BunnyStorageBuilderExtensions
         if (!builder.ApplicationBuilder.ExecutionContext.IsRunMode)
         {
             DetachFromAzureProvisioning(builder.Resource);
+            ExcludeStorageParentFromManifestIfNoAzureBlobContainersRemain(builder.Resource);
         }
 
         builder.WithAnnotation(
@@ -131,12 +132,29 @@ public static class BunnyStorageBuilderExtensions
 
     private static void DetachFromAzureProvisioning(AzureBlobStorageContainerResource resource)
     {
-        object? value = _azureStorageBlobContainersProperty.GetValue(resource.Parent.Parent);
-        if (value is not ICollection<AzureBlobStorageContainerResource> blobContainers)
+        GetAzureBlobContainers(resource.Parent.Parent).Remove(resource);
+    }
+
+    private static void ExcludeStorageParentFromManifestIfNoAzureBlobContainersRemain(AzureBlobStorageContainerResource resource)
+    {
+        AzureStorageResource storage = resource.Parent.Parent;
+        if (GetAzureBlobContainers(storage).Count > 0)
         {
-            throw new InvalidOperationException("Aspire Azure Storage blob-container provisioning collection has an unexpected shape.");
+            return;
         }
 
-        blobContainers.Remove(resource);
+        if (storage.Annotations.Contains(ManifestPublishingCallbackAnnotation.Ignore))
+        {
+            return;
+        }
+
+        storage.Annotations.Add(ManifestPublishingCallbackAnnotation.Ignore);
+    }
+
+    private static ICollection<AzureBlobStorageContainerResource> GetAzureBlobContainers(AzureStorageResource resource)
+    {
+        object? value = _azureStorageBlobContainersProperty.GetValue(resource);
+        return value as ICollection<AzureBlobStorageContainerResource>
+            ?? throw new InvalidOperationException("Aspire Azure Storage blob-container provisioning collection has an unexpected shape.");
     }
 }

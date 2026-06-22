@@ -33,6 +33,7 @@ public sealed class BunnyStorageHostingTests
         Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageDeploymentAnnotation>().SingleOrDefault());
         Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageOutputsAnnotation>().SingleOrDefault());
         Assert.Contains(media.Resource.Annotations, annotation => annotation is PipelineStepAnnotation);
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
         IReadOnlyCollection<AzureBlobStorageContainerResource> azureBlobContainers = GetAzureBlobContainers(storage.Resource);
         Assert.Contains(media.Resource, azureBlobContainers);
         Assert.Contains(logs.Resource, azureBlobContainers);
@@ -53,6 +54,36 @@ public sealed class BunnyStorageHostingTests
         IReadOnlyCollection<AzureBlobStorageContainerResource> azureBlobContainers = GetAzureBlobContainers(storage.Resource);
         Assert.DoesNotContain(media.Resource, azureBlobContainers);
         Assert.Contains(logs.Resource, azureBlobContainers);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestWhenNoAzureBlobContainersRemain()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureBlobContainersRemain(media.Resource);
+
+        Assert.Contains(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestKeepsParentWhenAzureBlobContainersRemain()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> logs = storage.AddBlobContainer("logs", "logs");
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureBlobContainersRemain(media.Resource);
+
+        Assert.Contains(logs.Resource, GetAzureBlobContainers(storage.Resource));
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
     }
 
     [Fact]
@@ -152,6 +183,48 @@ public sealed class BunnyStorageHostingTests
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => annotation.Callback(context));
 
         Assert.Contains("aspire deploy", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task WithObjectStorageKeepsAzureReferenceDuringRun()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WithObjectStorage(media);
+
+        Dictionary<string, object> environmentVariables =
+            await GetEnvironmentVariablesAsync(web.Resource, DistributedApplicationOperation.Run);
+
+        Assert.Contains("ConnectionStrings__media", environmentVariables);
+        Assert.Equal("AzureBlob", environmentVariables["ObjectStorage__media__Provider"]);
+    }
+
+    [Fact]
+    public async Task WithObjectStorageRemovesAzureReferenceDuringDeploy()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WithObjectStorage(media);
+
+        Dictionary<string, object> environmentVariables =
+            await GetEnvironmentVariablesAsync(web.Resource, DistributedApplicationOperation.Publish);
+
+        Assert.DoesNotContain("ConnectionStrings__media", environmentVariables);
+        Assert.Equal("Bunny", environmentVariables["ObjectStorage__media__Provider"]);
     }
 
     [Fact]
@@ -538,6 +611,33 @@ public sealed class BunnyStorageHostingTests
             ?? throw new InvalidOperationException("DetachFromAzureProvisioning method was not found.");
 
         method.Invoke(null, [resource]);
+    }
+
+    private static void InvokeExcludeStorageParentFromManifestIfNoAzureBlobContainersRemain(AzureBlobStorageContainerResource resource)
+    {
+        MethodInfo method = typeof(BunnyStorageBuilderExtensions).GetMethod("ExcludeStorageParentFromManifestIfNoAzureBlobContainersRemain", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ExcludeStorageParentFromManifestIfNoAzureBlobContainersRemain method was not found.");
+
+        method.Invoke(null, [resource]);
+    }
+
+    private static async Task<Dictionary<string, object>> GetEnvironmentVariablesAsync(
+        ContainerResource resource,
+        DistributedApplicationOperation operation)
+    {
+        Dictionary<string, object> environmentVariables = [];
+        EnvironmentCallbackContext context = new(
+            new DistributedApplicationExecutionContext(operation),
+            resource,
+            environmentVariables,
+            CancellationToken.None);
+
+        foreach (EnvironmentCallbackAnnotation annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
+        {
+            await annotation.Callback(context);
+        }
+
+        return environmentVariables;
     }
 
     private sealed class FakeBunnyStorageManagementClient : IBunnyStorageManagementClient

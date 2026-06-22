@@ -26,6 +26,8 @@ public static class BunnyStorageReferenceBuilderExtensions
                 return;
             }
 
+            RemoveAzureBlobConnectionReferences(context, resource);
+
             BunnyStorageOutputs outputs = resource.TryGetBunnyStorageOutputs()
                 ?? throw new InvalidOperationException($"Blob container resource '{resource.Name}' has not been published to Bunny Storage.");
             context.EnvironmentVariables[$"{prefix}Provider"] = "Bunny";
@@ -44,5 +46,19 @@ public static class BunnyStorageReferenceBuilderExtensions
         });
 
         return builder;
+    }
+
+    private static void RemoveAzureBlobConnectionReferences(
+        EnvironmentCallbackContext context,
+        AzureBlobStorageContainerResource resource)
+    {
+        foreach (KeyValuePair<string, object> environmentVariable in context.EnvironmentVariables.ToArray())
+        {
+            if (environmentVariable.Value is ConnectionStringReference reference
+                && ReferenceEquals(reference.Resource, resource))
+            {
+                context.EnvironmentVariables.Remove(environmentVariable.Key);
+            }
+        }
     }
 }
