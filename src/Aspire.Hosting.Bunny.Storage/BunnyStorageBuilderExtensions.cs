@@ -59,7 +59,10 @@ public static class BunnyStorageBuilderExtensions
 
         RemoveExistingBunnyPipelineStep(builder.Resource);
         global::Aspire.Hosting.ResourceBuilderExtensions.ExcludeFromManifest(builder);
-        DetachFromAzureProvisioning(builder.Resource);
+        if (!builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            DetachFromAzureProvisioning(builder.Resource);
+        }
 
         builder.WithAnnotation(
             new BunnyStorageDeploymentAnnotation(storageZoneName, apiKey, ownershipMode, options),

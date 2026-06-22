@@ -34,6 +34,23 @@ public sealed class BunnyStorageHostingTests
         Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageOutputsAnnotation>().SingleOrDefault());
         Assert.Contains(media.Resource.Annotations, annotation => annotation is PipelineStepAnnotation);
         IReadOnlyCollection<AzureBlobStorageContainerResource> azureBlobContainers = GetAzureBlobContainers(storage.Resource);
+        Assert.Contains(media.Resource, azureBlobContainers);
+        Assert.Contains(logs.Resource, azureBlobContainers);
+    }
+
+    [Fact]
+    public void DetachFromAzureProvisioningRemovesOnlyTargetContainer()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> logs = storage.AddBlobContainer("logs", "logs");
+
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+
+        IReadOnlyCollection<AzureBlobStorageContainerResource> azureBlobContainers = GetAzureBlobContainers(storage.Resource);
         Assert.DoesNotContain(media.Resource, azureBlobContainers);
         Assert.Contains(logs.Resource, azureBlobContainers);
     }
@@ -513,6 +530,14 @@ public sealed class BunnyStorageHostingTests
         PropertyInfo property = typeof(AzureStorageResource).GetProperty("BlobContainers", BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("BlobContainers property was not found.");
         return (IReadOnlyCollection<AzureBlobStorageContainerResource>)property.GetValue(resource)!;
+    }
+
+    private static void InvokeDetachFromAzureProvisioning(AzureBlobStorageContainerResource resource)
+    {
+        MethodInfo method = typeof(BunnyStorageBuilderExtensions).GetMethod("DetachFromAzureProvisioning", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("DetachFromAzureProvisioning method was not found.");
+
+        method.Invoke(null, [resource]);
     }
 
     private sealed class FakeBunnyStorageManagementClient : IBunnyStorageManagementClient
