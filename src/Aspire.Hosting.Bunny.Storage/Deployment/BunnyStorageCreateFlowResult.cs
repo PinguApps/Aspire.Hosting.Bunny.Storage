@@ -16,11 +16,23 @@ public sealed record BunnyStorageCreateFlowResult
         RemoteIdentity = remoteIdentity;
     }
 
-    public BunnyStorageZoneDetails StorageZone { get; }
+    public BunnyStorageZoneDetails StorageZone { get; init; }
 
-    public BunnyPullZoneDetails? PullZone { get; }
+    public BunnyPullZoneDetails? PullZone { get; init; }
 
-    public bool Created { get; }
+    public bool Created { get; init; }
 
-    public BunnyStorageRemoteIdentityState RemoteIdentity { get; }
+    public BunnyStorageRemoteIdentityState RemoteIdentity { get; init; }
+
+    public void Deconstruct(
+        out BunnyStorageZoneDetails storageZone,
+        out BunnyPullZoneDetails? pullZone,
+        out bool created,
+        out BunnyStorageRemoteIdentityState remoteIdentity)
+    {
+        storageZone = StorageZone;
+        pullZone = PullZone;
+        created = Created;
+        remoteIdentity = RemoteIdentity;
+    }
 }
