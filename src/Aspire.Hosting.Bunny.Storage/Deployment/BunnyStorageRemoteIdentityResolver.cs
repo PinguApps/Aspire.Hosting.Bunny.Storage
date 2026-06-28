@@ -60,7 +60,13 @@ public sealed record BunnyStorageRemoteIdentityStateResult
         ResolvedFromCachedIdentity = resolvedFromCachedIdentity;
     }
 
-    public BunnyStorageZoneDetails? StorageZone { get; }
+    public BunnyStorageZoneDetails? StorageZone { get; init; }
 
-    public bool ResolvedFromCachedIdentity { get; }
+    public bool ResolvedFromCachedIdentity { get; init; }
+
+    public void Deconstruct(out BunnyStorageZoneDetails? storageZone, out bool resolvedFromCachedIdentity)
+    {
+        storageZone = StorageZone;
+        resolvedFromCachedIdentity = ResolvedFromCachedIdentity;
+    }
 }
