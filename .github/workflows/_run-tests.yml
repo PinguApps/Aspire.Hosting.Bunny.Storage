@@ -99,11 +99,13 @@ jobs:
 
       - name: Publish test results
         if: (success() || failure()) && inputs.publish_test_results_to_github
+        continue-on-error: true
         uses: EnricoMi/publish-unit-test-result-action/linux@d0a4676d0e0b938bc201470d88276b7c74c712b3 # v2
         with:
           files: TestResults/**/*.trx
           check_name: ${{ inputs.publish_test_results_check_name }}
           comment_mode: ${{ inputs.publish_test_results_comment_mode }}
+          compare_to_earlier_commit: false
           job_summary: false
 
       - name: Summarize test results
