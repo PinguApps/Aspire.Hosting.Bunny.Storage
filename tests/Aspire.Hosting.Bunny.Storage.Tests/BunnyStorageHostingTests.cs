@@ -1,0 +1,1047 @@
+#pragma warning disable ASPIREPIPELINES001
+#pragma warning disable ASPIREPIPELINES002
+
+using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Azure;
+using Aspire.Hosting.Bunny.Storage;
+using Aspire.Hosting.Bunny.Storage.Deployment;
+using Aspire.Hosting.Bunny.Storage.Management;
+using Aspire.Hosting.Pipelines;
+using Aspire.Hosting.Publishing;
+using System.Net;
+using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace Aspire.Hosting.Bunny.Storage.Tests;
+
+public sealed class BunnyStorageHostingTests
+{
+    [Fact]
+    public void PublishToBunnyAttachesAnnotationOutputsAndPipelineStep()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> logs = storage.AddBlobContainer("logs", "logs");
+
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+
+        Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageDeploymentAnnotation>().SingleOrDefault());
+        Assert.NotNull(media.Resource.Annotations.OfType<BunnyStorageOutputsAnnotation>().SingleOrDefault());
+        Assert.Contains(media.Resource.Annotations, annotation => annotation is PipelineStepAnnotation);
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+        IReadOnlyCollection<AzureBlobStorageContainerResource> azureBlobContainers = GetAzureBlobContainers(storage.Resource);
+        Assert.Contains(media.Resource, azureBlobContainers);
+        Assert.Contains(logs.Resource, azureBlobContainers);
+    }
+
+    [Fact]
+    public void DetachFromAzureProvisioningRemovesOnlyTargetContainer()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> logs = storage.AddBlobContainer("logs", "logs");
+
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+
+        IReadOnlyCollection<AzureBlobStorageContainerResource> azureBlobContainers = GetAzureBlobContainers(storage.Resource);
+        Assert.DoesNotContain(media.Resource, azureBlobContainers);
+        Assert.Contains(logs.Resource, azureBlobContainers);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestWhenNoAzureBlobContainersRemain()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.Contains(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestKeepsParentWhenAzureBlobContainersRemain()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> logs = storage.AddBlobContainer("logs", "logs");
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.Contains(logs.Resource, GetAzureBlobContainers(storage.Resource));
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestKeepsParentWhenQueuesRemain()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        storage.AddQueue("jobs", "jobs");
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestKeepsParentWhenTablesRemain()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        storage.AddTables("tables");
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestKeepsParentWhenBlobServiceIsReferenced()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+        IResourceBuilder<AzureBlobStorageResource> blobs = storage.AddBlobs("blobs");
+        app.AddContainer("web", "example/web")
+            .WithReference(blobs);
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestIgnoresBlobServiceWaitAnnotations()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+        app.AddContainer("web", "example/web")
+            .WaitFor(media);
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.Contains(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludedStorageParentRejectsChildrenAddedAfterPublishToBunny()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+        storage.AddQueue("jobs", "jobs");
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            InvokeThrowIfExcludedStorageParentHasAzureChildren(app, media.Resource));
+
+        Assert.Contains("added afterwards", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void DuplicatePublishToBunnyReplacesOldPipelineStep()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+
+        media.PublishToBunny("first-zone", apiKey, configure: options => options.PublicBaseUrl = "https://first-zone.b-cdn.net");
+        media.PublishToBunny("second-zone", apiKey, configure: options => options.PublicBaseUrl = "https://second-zone.b-cdn.net");
+
+        Assert.Single(media.Resource.Annotations.OfType<BunnyStorageDeploymentAnnotation>());
+        Assert.Single(media.Resource.Annotations.OfType<PipelineStepAnnotation>());
+        Assert.Equal("second-zone", media.Resource.GetBunnyStorageDeploymentState()!.StorageZoneName.LiteralValue);
+    }
+
+    [Fact]
+    public void OptionsValidationRejectsPrimaryRegionAsReplicationRegion()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            media.PublishToBunny("zone", apiKey, configure: options =>
+            {
+                options.PublicBaseUrl = "https://zone.b-cdn.net";
+                options.SetReplicationRegions(BunnyStorageRegion.De);
+            }));
+        Assert.Contains("primary region", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OptionsValidationRejectsSydAsPrimaryRegion()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            media.PublishToBunny("zone", apiKey, configure: options =>
+            {
+                options.PublicBaseUrl = "https://zone.b-cdn.net";
+                options.Region = BunnyStorageRegion.Syd;
+            }));
+        Assert.Contains("primary region", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OptionsValidationRejectsMissingPublicReadConfiguration()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            media.PublishToBunny("zone", apiKey));
+
+        Assert.Contains("PublicBaseUrl", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("CreatePullZone", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WithObjectStorageRejectsManifestPublishForBunnyOutputs()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithObjectStorage(media);
+
+        ManifestPublishingCallbackAnnotation annotation = web.Resource.Annotations
+            .OfType<ManifestPublishingCallbackAnnotation>()
+            .Single();
+        Assert.NotNull(annotation.Callback);
+        using MemoryStream stream = new();
+        using Utf8JsonWriter writer = new(stream);
+        ManifestPublishingContext context = new(
+            new DistributedApplicationExecutionContext(DistributedApplicationOperation.Publish, "manifest"),
+            "manifest.json",
+            writer,
+            CancellationToken.None);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => annotation.Callback(context));
+
+        Assert.Contains("aspire deploy", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task WithObjectStorageInjectsAzureProviderDuringRun()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WithObjectStorage(media);
+
+        Dictionary<string, object> environmentVariables =
+            await GetEnvironmentVariablesAsync(web.Resource, DistributedApplicationOperation.Run);
+
+        Assert.DoesNotContain("ConnectionStrings__media", environmentVariables);
+        Assert.Equal("AzureBlob", environmentVariables["ObjectStorage__media__Provider"]);
+        Assert.Contains("ObjectStorage__media__Azure__ConnectionString", environmentVariables);
+        Assert.Equal("media", environmentVariables["ObjectStorage__media__Azure__ContainerName"]);
+    }
+
+    [Fact]
+    public async Task WithObjectStorageRemovesAzureReferenceDuringDeploy()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WithObjectStorage(media);
+
+        Dictionary<string, object> environmentVariables =
+            await GetEnvironmentVariablesAsync(web.Resource, DistributedApplicationOperation.Publish);
+
+        Assert.DoesNotContain("ConnectionStrings__media", environmentVariables);
+        Assert.Equal("Bunny", environmentVariables["ObjectStorage__media__Provider"]);
+        Assert.DoesNotContain(environmentVariables.Values, value =>
+            value is IValueWithReferences references
+            && references.References.Contains(media.Resource));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource));
+    }
+
+    [Fact]
+    public async Task WithObjectStorageRejectsAzureReferenceAddedAfterItDuringDeploy()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithObjectStorage(media)
+            .WithReference(media);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            GetEnvironmentVariablesAsync(web.Resource, DistributedApplicationOperation.Publish));
+
+        Assert.Contains("must be called after", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void WithObjectStorageRemovesAzureWaitsWhenStorageParentIsExcludedDuringDeploy()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WaitFor(media);
+
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, [media.Resource, media.Resource.Parent, media.Resource.Parent.Parent]);
+
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent.Parent));
+    }
+
+    [Fact]
+    public void WithObjectStoragePreservesStorageParentWaitWhenOtherAzureChildrenRemainDuringDeploy()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        storage.AddQueue("jobs", "jobs");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WaitFor(media);
+
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, [media.Resource, media.Resource.Parent]);
+
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent));
+        Assert.Contains(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent.Parent, "WaitAnnotation"));
+    }
+
+    [Fact]
+    public void WithObjectStorageKeepsAzureWaitsDuringRun()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WaitFor(media);
+
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, []);
+
+        Assert.Contains(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource, "WaitAnnotation"));
+    }
+
+    [Fact]
+    public async Task CreateFlowCreatesMissingStorageZoneAndPullZone()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        BunnyStorageCreateFlowResult result = await BunnyStorageDeploymentPipeline.ExecuteAsync(
+            deployment,
+            client,
+            cachedIdentity: null,
+            CancellationToken.None);
+
+        Assert.True(result.Created);
+        Assert.Equal("my-zone", result.StorageZone.Name);
+        Assert.Equal("my-zone", result.PullZone!.Name);
+        Assert.Contains(client.Interactions, interaction => interaction == "POST /storagezone");
+        Assert.Contains(client.Interactions, interaction => interaction == "POST /pullzone");
+    }
+
+    [Fact]
+    public async Task CreateFlowRetriesWhenStorageZoneNameIsBeingDeleted()
+    {
+        FakeBunnyStorageManagementClient client = new()
+        {
+            StorageZoneCreateFailuresBeforeSuccess = 2,
+        };
+        List<TimeSpan> delays = [];
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+
+        BunnyStorageCreateFlowResult result = await new BunnyStorageCreateFlow(
+                client,
+                (delay, _) =>
+                {
+                    delays.Add(delay);
+                    return Task.CompletedTask;
+                },
+                [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)])
+            .ExecuteAsync(
+                deployment,
+                new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, ExistingZone: null),
+                CancellationToken.None);
+
+        Assert.True(result.Created);
+        Assert.Equal([TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)], delays);
+        Assert.Equal(3, client.Interactions.Count(interaction => interaction == "POST /storagezone"));
+    }
+
+    [Fact]
+    public async Task CreateFlowReportsCreatedIdentityBeforePullZoneFailure()
+    {
+        FakeBunnyStorageManagementClient client = new()
+        {
+            PullZoneCreateException = new InvalidOperationException("pull zone failed"),
+        };
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(BunnyStorageOwnershipMode.CreateOnly, createPullZone: true);
+        BunnyStorageRemoteIdentityState? savedIdentity = null;
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new BunnyStorageCreateFlow(
+                    client,
+                    static (_, _) => Task.CompletedTask,
+                    [],
+                    (identity, _) =>
+                    {
+                        savedIdentity = identity;
+                        return Task.CompletedTask;
+                    })
+                .ExecuteAsync(
+                    deployment,
+                    new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, ExistingZone: null),
+                    CancellationToken.None));
+
+        Assert.Equal("pull zone failed", exception.Message);
+        Assert.NotNull(savedIdentity);
+        Assert.Equal("my-zone", savedIdentity.StorageZoneName);
+        Assert.Equal("123", savedIdentity.ProviderStorageZoneId);
+    }
+
+    [Fact]
+    public async Task ExistingOnlyFailsIfMissing()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(BunnyStorageOwnershipMode.ExistingOnly);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+        Assert.Contains("does not exist", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreateOnlyFailsIfExisting()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails { Id = 1, Name = "my-zone", Password = "password", Region = "DE" });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(BunnyStorageOwnershipMode.CreateOnly);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+        Assert.Contains("already exists", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PullZoneAdoptionFailsWhenExistingZoneTargetsDifferentStorageZone()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.PullZones.Add(new BunnyPullZoneDetails
+        {
+            Id = 10,
+            Name = "my-zone",
+            StorageZoneId = 999,
+            OriginUrl = "https://storage.bunnycdn.com/other-zone/",
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("linked to storage zone", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PullZoneAdoptionFailsWhenExistingZoneIsNotLinkedToStorageZone()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.PullZones.Add(new BunnyPullZoneDetails
+        {
+            Id = 10,
+            Name = "my-zone",
+            StorageZoneId = null,
+            OriginUrl = "https://storage.bunnycdn.com/my-zone/",
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("not linked to a storage zone", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(false, false, false, "disabled")]
+    [InlineData(true, true, false, "suspended")]
+    [InlineData(true, false, true, "token authentication")]
+    public async Task PullZoneAdoptionFailsWhenExistingZoneCannotServeTraffic(
+        bool enabled,
+        bool suspended,
+        bool zoneSecurityEnabled,
+        string expectedMessage)
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.PullZones.Add(new BunnyPullZoneDetails
+        {
+            Id = 10,
+            Name = "my-zone",
+            StorageZoneId = 123,
+            OriginUrl = "https://storage.bunnycdn.com/my-zone/",
+            Enabled = enabled,
+            Suspended = suspended,
+            ZoneSecurityEnabled = zoneSecurityEnabled,
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains(expectedMessage, exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreateOrAdoptAdoptsExistingAndDetectsImmutableDrift()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails { Id = 1, Name = "my-zone", Password = "password", Region = "NY" });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+        Assert.Contains("immutable drift", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ImmutableDriftFailsBeforePullZoneWork()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails { Id = 1, Name = "my-zone", Password = "password", Region = "NY" });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("immutable drift", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("GET /pullzone", client.Interactions);
+        Assert.DoesNotContain("POST /pullzone", client.Interactions);
+    }
+
+    [Fact]
+    public async Task CreateOrAdoptDetectsReplicationRegionDrift()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails
+        {
+            Id = 1,
+            Name = "my-zone",
+            Password = "password",
+            Region = "DE",
+            ReplicationRegions = ["SG"],
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("replication regions", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreateOnlyUsesCachedIdentityOnRedeploy()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails
+        {
+            Id = 1,
+            Name = "my-zone",
+            Password = "password",
+            Region = "DE",
+            ReplicationRegions = ["NY"],
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(BunnyStorageOwnershipMode.CreateOnly);
+        BunnyStorageRemoteIdentityState cachedIdentity = new("my-zone", "1");
+
+        BunnyStorageCreateFlowResult result = await BunnyStorageDeploymentPipeline.ExecuteAsync(
+            deployment,
+            client,
+            cachedIdentity,
+            CancellationToken.None);
+
+        Assert.False(result.Created);
+        Assert.Equal(1, result.StorageZone.Id);
+        Assert.DoesNotContain("POST /storagezone", client.Interactions);
+    }
+
+    [Fact]
+    public async Task CachedIdentityMustStillExist()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.StorageZones.Add(new BunnyStorageZoneDetails { Id = 2, Name = "my-zone", Password = "password", Region = "DE" });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+        BunnyStorageRemoteIdentityState cachedIdentity = new("my-zone", "1");
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity, CancellationToken.None));
+
+        Assert.Contains("no longer exists", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task MissingCachedIdentityMessageIncludesDeploymentStateSection()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        BunnyStorageRemoteIdentityState cachedIdentity = new("my-zone", "1");
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new BunnyStorageRemoteIdentityResolver(client).ResolveAsync(
+                "my-zone",
+                cachedIdentity,
+                "Aspire.Hosting.Bunny.Storage.RemoteIdentity.media",
+                CancellationToken.None));
+
+        Assert.Contains("Aspire.Hosting.Bunny.Storage.RemoteIdentity.media", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ClearCacheIgnoresSavedRemoteIdentity()
+    {
+        FakeDeploymentStateManager stateManager = new();
+        BunnyStorageRemoteIdentityDeploymentStateStore store = new(stateManager);
+        await store.SaveAsync("media", new BunnyStorageRemoteIdentityState("my-zone", "1"), CancellationToken.None);
+
+        BunnyStorageRemoteIdentityState? cachedIdentity = await BunnyStorageDeploymentPipeline.LoadCachedIdentityAsync(
+            store,
+            "media",
+            clearCache: true,
+            CancellationToken.None);
+
+        Assert.Null(cachedIdentity);
+    }
+
+    [Fact]
+    public async Task AccessKeyOutputIsSecretAndOutputsPopulate()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+        media.PublishToBunny(
+            "zone",
+            app.AddParameter("bunny-api-key", secret: true),
+            configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        BunnyStorageOutputs outputs = media.GetBunnyStorageOutputs()!;
+        BunnyStorageResolvedDeployment deployment = CreateDeployment();
+        FakeBunnyStorageManagementClient client = new();
+
+        BunnyStorageCreateFlowResult result = await BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, null, CancellationToken.None);
+        outputs.Populate(result.StorageZone, result.PullZone, deployment.StorageEndpoint, BunnyStorageDeploymentPipeline.ResolvePublicBaseUrl(deployment, result.PullZone));
+
+        Assert.True(BunnyStorageOutputs.IsSecret(BunnyStorageOutputNames.AccessKey));
+        Assert.False(BunnyStorageOutputs.IsSecret(BunnyStorageOutputNames.PublicBaseUrl));
+        Assert.Equal("password", await outputs.AccessKey.GetValueAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public void OutputsRejectMissingStoragePassword()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media");
+        media.PublishToBunny(
+            "zone",
+            app.AddParameter("bunny-api-key", secret: true),
+            configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        BunnyStorageOutputs outputs = media.GetBunnyStorageOutputs()!;
+        BunnyStorageZoneDetails zone = new()
+        {
+            Id = 123,
+            Name = "my-zone",
+            Password = "",
+            Region = "DE",
+        };
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            outputs.Populate(zone, pullZone: null, storageEndpoint: "https://storage.bunnycdn.com", publicBaseUrl: "https://my-zone.b-cdn.net"));
+
+        Assert.Contains("password", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ManagementClientRejectsMissingHttpClientBaseAddress()
+    {
+        ArgumentException exception = Assert.Throws<ArgumentException>(() =>
+            new BunnyStorageManagementClient(new HttpClient(), new BunnyStorageManagementCredentials("account-api-key")));
+
+        Assert.Contains("BaseAddress", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ManagementClientRejectsNullCredentials()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            new BunnyStorageManagementClient(new HttpClient { BaseAddress = new Uri("https://api.bunny.net/") }, credentials: null!));
+    }
+
+    [Fact]
+    public async Task ManagementClientClassifiesDeletingStorageZoneName()
+    {
+        ResponseHandler handler = new(new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""{"ErrorKey":"storagezone.name_taken","Field":"Name","Message":"The storage zone is currently being deleted."}"""),
+        });
+        HttpClient httpClient = new(handler)
+        {
+            BaseAddress = new Uri("https://api.bunny.net/"),
+        };
+        BunnyStorageManagementClient client = new(httpClient, new BunnyStorageManagementCredentials("account-api-key"));
+
+        BunnyStorageProviderException exception = await Assert.ThrowsAsync<BunnyStorageProviderException>(() =>
+            client.CreateStorageZoneAsync("my-zone", "DE", [], CancellationToken.None));
+
+        Assert.Equal(BunnyStorageProviderFailureKind.StorageZoneBeingDeleted, exception.FailureKind);
+        Assert.Contains("\"Name\":\"my-zone\"", handler.RequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"Region\":\"DE\"", handler.RequestBody, StringComparison.Ordinal);
+        Assert.Contains("\"ReplicationRegions\":[]", handler.RequestBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ManagementClientUsesListedPullZoneWhenCreateResponseIsEmpty()
+    {
+        QueueResponseHandler handler = new(
+            new HttpResponseMessage(HttpStatusCode.Created),
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""
+                    [{"Id":456,"Name":"my-zone","OriginUrl":"https://storage.bunnycdn.com/my-zone/","StorageZoneId":123}]
+                    """),
+            });
+        HttpClient httpClient = new(handler)
+        {
+            BaseAddress = new Uri("https://api.bunny.net/"),
+        };
+        BunnyStorageManagementClient client = new(httpClient, new BunnyStorageManagementCredentials("account-api-key"));
+
+        BunnyPullZoneDetails pullZone = await client.CreatePullZoneAsync(
+            "my-zone",
+            "https://storage.bunnycdn.com/my-zone/",
+            123,
+            CancellationToken.None);
+
+        Assert.Equal(456, pullZone.Id);
+        Assert.All(handler.RequestPaths, path => Assert.EndsWith("/pullzone", path, StringComparison.Ordinal));
+        Assert.Equal(2, handler.RequestPaths.Count);
+    }
+
+    private static BunnyStorageResolvedDeployment CreateDeployment(
+        BunnyStorageOwnershipMode ownershipMode = BunnyStorageOwnershipMode.CreateOrAdopt,
+        bool createPullZone = false)
+    {
+        BunnyStorageDeploymentOptions options = new()
+        {
+            Region = BunnyStorageRegion.De,
+            CreatePullZone = createPullZone,
+            PullZoneName = createPullZone ? "my-zone" : null,
+            PublicBaseUrl = "https://my-zone.b-cdn.net",
+        };
+        options.SetReplicationRegions(BunnyStorageRegion.Ny);
+        return new BunnyStorageResolvedDeployment(
+            "my-zone",
+            ownershipMode,
+            new BunnyStorageManagementCredentials("account-api-key"),
+            options);
+    }
+
+    private static IReadOnlyCollection<AzureBlobStorageContainerResource> GetAzureBlobContainers(AzureStorageResource resource)
+    {
+        PropertyInfo property = typeof(AzureStorageResource).GetProperty("BlobContainers", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("BlobContainers property was not found.");
+        return (IReadOnlyCollection<AzureBlobStorageContainerResource>)property.GetValue(resource)!;
+    }
+
+    private static void InvokeDetachFromAzureProvisioning(AzureBlobStorageContainerResource resource)
+    {
+        MethodInfo method = typeof(BunnyStorageBuilderExtensions).GetMethod("DetachFromAzureProvisioning", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("DetachFromAzureProvisioning method was not found.");
+
+        method.Invoke(null, [resource]);
+    }
+
+    private static void InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(
+        IDistributedApplicationBuilder app,
+        AzureBlobStorageContainerResource resource)
+    {
+        MethodInfo method = typeof(BunnyStorageBuilderExtensions).GetMethod("ExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain method was not found.");
+
+        method.Invoke(null, [app, resource]);
+    }
+
+    private static void InvokeThrowIfExcludedStorageParentHasAzureChildren(
+        IDistributedApplicationBuilder app,
+        AzureBlobStorageContainerResource resource)
+    {
+        MethodInfo method = typeof(BunnyStorageBuilderExtensions).GetMethod("ThrowIfExcludedStorageParentHasAzureChildren", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ThrowIfExcludedStorageParentHasAzureChildren method was not found.");
+
+        try
+        {
+            method.Invoke(null, [app, resource]);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            throw exception.InnerException;
+        }
+    }
+
+    private static void InvokeRemoveAzureBlobReferenceAnnotations<TResource>(
+        IResourceBuilder<TResource> builder,
+        AzureBlobStorageContainerResource resource,
+        IReadOnlyCollection<IResource> waitResourcesToRemove)
+        where TResource : IResourceWithEnvironment
+    {
+        MethodInfo method = typeof(BunnyStorageReferenceBuilderExtensions).GetMethod("RemoveAzureBlobReferenceAnnotations", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("RemoveAzureBlobReferenceAnnotations method was not found.");
+
+        method.MakeGenericMethod(typeof(TResource)).Invoke(null, [builder, resource, waitResourcesToRemove]);
+    }
+
+    private static async Task<Dictionary<string, object>> GetEnvironmentVariablesAsync(
+        ContainerResource resource,
+        DistributedApplicationOperation operation)
+    {
+        Dictionary<string, object> environmentVariables = [];
+        EnvironmentCallbackContext context = new(
+            new DistributedApplicationExecutionContext(operation),
+            resource,
+            environmentVariables,
+            CancellationToken.None);
+
+        foreach (EnvironmentCallbackAnnotation annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
+        {
+            await annotation.Callback(context);
+        }
+
+        return environmentVariables;
+    }
+
+    private static bool AnnotationReferencesResource(IResourceAnnotation annotation, IResource resource)
+    {
+        return annotation.GetType()
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Any(property =>
+            {
+                object? value = property.GetValue(annotation);
+                return ReferenceEquals(value, resource);
+            });
+    }
+
+    private static bool AnnotationReferencesResource(IResourceAnnotation annotation, IResource resource, string annotationTypeName)
+    {
+        return string.Equals(annotation.GetType().Name, annotationTypeName, StringComparison.Ordinal)
+            && AnnotationReferencesResource(annotation, resource);
+    }
+
+    private sealed class FakeBunnyStorageManagementClient : IBunnyStorageManagementClient
+    {
+        public List<string> Interactions { get; } = [];
+
+        public List<BunnyStorageZoneDetails> StorageZones { get; } = [];
+
+        public List<BunnyPullZoneDetails> PullZones { get; } = [];
+
+        public int StorageZoneCreateFailuresBeforeSuccess { get; set; }
+
+        public Exception? PullZoneCreateException { get; set; }
+
+        public Task<IReadOnlyList<BunnyStorageZoneDetails>> ListStorageZonesAsync(CancellationToken cancellationToken)
+        {
+            Interactions.Add("GET /storagezone");
+            return Task.FromResult<IReadOnlyList<BunnyStorageZoneDetails>>(StorageZones);
+        }
+
+        public Task<BunnyStorageZoneDetails> CreateStorageZoneAsync(string name, string region, IReadOnlyList<string> replicationRegions, CancellationToken cancellationToken)
+        {
+            Interactions.Add("POST /storagezone");
+            if (StorageZoneCreateFailuresBeforeSuccess > 0)
+            {
+                StorageZoneCreateFailuresBeforeSuccess--;
+                throw new BunnyStorageProviderException(
+                    BunnyStorageProviderFailureKind.StorageZoneBeingDeleted,
+                    "Bunny Storage zone name is still being deleted.");
+            }
+
+            BunnyStorageZoneDetails zone = new()
+            {
+                Id = 123,
+                Name = name,
+                Password = "password",
+                Region = region,
+                ReplicationRegions = [.. replicationRegions],
+            };
+            StorageZones.Add(zone);
+            return Task.FromResult(zone);
+        }
+
+        public Task<IReadOnlyList<BunnyPullZoneDetails>> ListPullZonesAsync(CancellationToken cancellationToken)
+        {
+            Interactions.Add("GET /pullzone");
+            return Task.FromResult<IReadOnlyList<BunnyPullZoneDetails>>(PullZones);
+        }
+
+        public Task<BunnyPullZoneDetails> CreatePullZoneAsync(string name, string originUrl, long storageZoneId, CancellationToken cancellationToken)
+        {
+            Interactions.Add("POST /pullzone");
+            if (PullZoneCreateException is not null)
+            {
+                throw PullZoneCreateException;
+            }
+
+            BunnyPullZoneDetails pullZone = new()
+            {
+                Id = 456,
+                Name = name,
+                OriginUrl = originUrl,
+                StorageZoneId = storageZoneId,
+            };
+            PullZones.Add(pullZone);
+            return Task.FromResult(pullZone);
+        }
+    }
+
+    private sealed class ResponseHandler(HttpResponseMessage response) : HttpMessageHandler
+    {
+        public string RequestBody { get; private set; } = string.Empty;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Content is not null)
+            {
+                RequestBody = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            return response;
+        }
+    }
+
+    private sealed class QueueResponseHandler(params HttpResponseMessage[] responses) : HttpMessageHandler
+    {
+        private readonly Queue<HttpResponseMessage> _responses = new(responses);
+
+        public List<string> RequestPaths { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            RequestPaths.Add(request.RequestUri?.ToString() ?? "");
+            return Task.FromResult(_responses.Dequeue());
+        }
+    }
+
+    private sealed class FakeDeploymentStateManager : IDeploymentStateManager
+    {
+        private readonly Dictionary<string, DeploymentStateSection> _sections = [];
+
+        public string? StateFilePath => null;
+
+        public Task<DeploymentStateSection> AcquireSectionAsync(string sectionName, CancellationToken cancellationToken)
+        {
+            if (!_sections.TryGetValue(sectionName, out DeploymentStateSection? section))
+            {
+                section = new DeploymentStateSection(sectionName, new JsonObject(), version: 0);
+                _sections[sectionName] = section;
+            }
+
+            return Task.FromResult(section);
+        }
+
+        public Task SaveSectionAsync(DeploymentStateSection section, CancellationToken cancellationToken)
+        {
+            _sections[section.SectionName] = section;
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteSectionAsync(DeploymentStateSection section, CancellationToken cancellationToken)
+        {
+            _sections.Remove(section.SectionName);
+            return Task.CompletedTask;
+        }
+
+        public Task ClearAllStateAsync(CancellationToken cancellationToken)
+        {
+            _sections.Clear();
+            return Task.CompletedTask;
+        }
+    }
+}
