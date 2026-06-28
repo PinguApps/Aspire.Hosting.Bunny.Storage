@@ -78,6 +78,10 @@ public static class BunnyStorageBuilderExtensions
         {
             DetachFromAzureProvisioning(builder.Resource);
             ExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(builder.ApplicationBuilder, builder.Resource);
+            builder.WithPipelineConfiguration(_ =>
+            {
+                ThrowIfExcludedStorageParentHasAzureChildren(builder.ApplicationBuilder, builder.Resource);
+            });
         }
 
         builder.WithAnnotation(
@@ -145,12 +149,12 @@ public static class BunnyStorageBuilderExtensions
         }
     }
 
-    private static void DetachFromAzureProvisioning(AzureBlobStorageContainerResource resource)
+    internal static void DetachFromAzureProvisioning(AzureBlobStorageContainerResource resource)
     {
         GetAzureBlobContainers(resource.Parent.Parent).Remove(resource);
     }
 
-    private static void ExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(
+    internal static void ExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(
         IDistributedApplicationBuilder appBuilder,
         AzureBlobStorageContainerResource resource)
     {
@@ -168,7 +172,23 @@ public static class BunnyStorageBuilderExtensions
         storage.Annotations.Add(ManifestPublishingCallbackAnnotation.Ignore);
     }
 
-    private static bool HasAzureStorageChildrenRequiringProvisioning(
+    internal static void ThrowIfExcludedStorageParentHasAzureChildren(
+        IDistributedApplicationBuilder appBuilder,
+        AzureBlobStorageContainerResource resource)
+    {
+        AzureStorageResource storage = resource.Parent.Parent;
+        if (!storage.Annotations.Contains(ManifestPublishingCallbackAnnotation.Ignore)
+            || !HasAzureStorageChildrenRequiringProvisioning(appBuilder, storage))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Azure Storage resource '{storage.Name}' was excluded because blob container '{resource.Name}' is published to Bunny Storage, " +
+            "but additional Azure Storage children were added afterwards. Add Azure Storage queues, tables, data-lake resources, or direct blob-service references before calling PublishToBunny.");
+    }
+
+    internal static bool HasAzureStorageChildrenRequiringProvisioning(
         IDistributedApplicationBuilder appBuilder,
         AzureStorageResource resource)
     {
@@ -178,7 +198,21 @@ public static class BunnyStorageBuilderExtensions
             || _azureStorageQueueStorageBuilderProperty.GetValue(resource) is not null
             || _azureStorageTableStorageBuilderProperty.GetValue(resource) is not null
             || _azureStorageDataLakeStorageBuilderProperty.GetValue(resource) is not null
+            || appBuilder.Resources.OfType<AzureBlobStorageResource>().Any(blobStorage =>
+                ReferenceEquals(blobStorage.Parent, resource)
+                && IsResourceReferencedByAnotherResource(appBuilder, blobStorage))
             || appBuilder.Resources.Any(candidate => IsNonBlobAzureStorageDescendant(candidate, resource));
+    }
+
+    private static bool IsResourceReferencedByAnotherResource(
+        IDistributedApplicationBuilder appBuilder,
+        IResource resource)
+    {
+        return appBuilder.Resources
+            .Where(candidate => !ReferenceEquals(candidate, resource))
+            .SelectMany(candidate => candidate.Annotations)
+            .Where(annotation => !string.Equals(annotation.GetType().Name, "WaitAnnotation", StringComparison.Ordinal))
+            .Any(annotation => AnnotationReferencesResource(annotation, resource));
     }
 
     private static bool IsNonBlobAzureStorageDescendant(IResource candidate, AzureStorageResource storage)
@@ -207,5 +241,16 @@ public static class BunnyStorageBuilderExtensions
         return value is System.Collections.ICollection collection
             ? collection.Count
             : throw new InvalidOperationException($"Aspire Azure Storage collection '{property.Name}' has an unexpected shape.");
+    }
+
+    private static bool AnnotationReferencesResource(IResourceAnnotation annotation, IResource resource)
+    {
+        return annotation.GetType()
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Any(property =>
+            {
+                object? value = property.GetValue(annotation);
+                return ReferenceEquals(value, resource);
+            });
     }
 }

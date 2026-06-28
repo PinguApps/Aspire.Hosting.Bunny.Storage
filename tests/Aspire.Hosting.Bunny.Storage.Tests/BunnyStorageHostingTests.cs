@@ -117,6 +117,56 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
+    public void ExcludeStorageParentFromManifestKeepsParentWhenBlobServiceIsReferenced()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+        IResourceBuilder<AzureBlobStorageResource> blobs = storage.AddBlobs("blobs");
+        app.AddContainer("web", "example/web")
+            .WithReference(blobs);
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.DoesNotContain(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludeStorageParentFromManifestIgnoresBlobServiceWaitAnnotations()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+        app.AddContainer("web", "example/web")
+            .WaitFor(media);
+
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+
+        Assert.Contains(ManifestPublishingCallbackAnnotation.Ignore, storage.Resource.Annotations);
+    }
+
+    [Fact]
+    public void ExcludedStorageParentRejectsChildrenAddedAfterPublishToBunny()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media");
+        InvokeDetachFromAzureProvisioning(media.Resource);
+        InvokeExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(app, media.Resource);
+        storage.AddQueue("jobs", "jobs");
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            InvokeThrowIfExcludedStorageParentHasAzureChildren(app, media.Resource));
+
+        Assert.Contains("added afterwards", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void DuplicatePublishToBunnyReplacesOldPipelineStep()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
@@ -285,7 +335,7 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
-    public void WithObjectStorageRemovesAzureWaitsDuringDeploy()
+    public void WithObjectStorageRemovesAzureWaitsWhenStorageParentIsExcludedDuringDeploy()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
         IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
@@ -298,7 +348,7 @@ public sealed class BunnyStorageHostingTests
         web.WithReference(media)
             .WaitFor(media);
 
-        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, removeWaitAnnotations: true);
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, [media.Resource, media.Resource.Parent, media.Resource.Parent.Parent]);
 
         Assert.DoesNotContain(web.Resource.Annotations, annotation =>
             AnnotationReferencesResource(annotation, media.Resource));
@@ -306,6 +356,31 @@ public sealed class BunnyStorageHostingTests
             AnnotationReferencesResource(annotation, media.Resource.Parent));
         Assert.DoesNotContain(web.Resource.Annotations, annotation =>
             AnnotationReferencesResource(annotation, media.Resource.Parent.Parent));
+    }
+
+    [Fact]
+    public void WithObjectStoragePreservesStorageParentWaitWhenOtherAzureChildrenRemainDuringDeploy()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureStorageResource> storage = app.AddAzureStorage("storage")
+            .RunAsEmulator();
+        IResourceBuilder<AzureBlobStorageContainerResource> media = storage.AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        storage.AddQueue("jobs", "jobs");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WaitFor(media);
+
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, [media.Resource, media.Resource.Parent]);
+
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent));
+        Assert.Contains(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent.Parent, "WaitAnnotation"));
     }
 
     [Fact]
@@ -322,7 +397,7 @@ public sealed class BunnyStorageHostingTests
         web.WithReference(media)
             .WaitFor(media);
 
-        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, removeWaitAnnotations: false);
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, []);
 
         Assert.Contains(web.Resource.Annotations, annotation =>
             AnnotationReferencesResource(annotation, media.Resource, "WaitAnnotation"));
@@ -774,16 +849,33 @@ public sealed class BunnyStorageHostingTests
         method.Invoke(null, [app, resource]);
     }
 
+    private static void InvokeThrowIfExcludedStorageParentHasAzureChildren(
+        IDistributedApplicationBuilder app,
+        AzureBlobStorageContainerResource resource)
+    {
+        MethodInfo method = typeof(BunnyStorageBuilderExtensions).GetMethod("ThrowIfExcludedStorageParentHasAzureChildren", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("ThrowIfExcludedStorageParentHasAzureChildren method was not found.");
+
+        try
+        {
+            method.Invoke(null, [app, resource]);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            throw exception.InnerException;
+        }
+    }
+
     private static void InvokeRemoveAzureBlobReferenceAnnotations<TResource>(
         IResourceBuilder<TResource> builder,
         AzureBlobStorageContainerResource resource,
-        bool removeWaitAnnotations)
+        IReadOnlyCollection<IResource> waitResourcesToRemove)
         where TResource : IResourceWithEnvironment
     {
         MethodInfo method = typeof(BunnyStorageReferenceBuilderExtensions).GetMethod("RemoveAzureBlobReferenceAnnotations", BindingFlags.Static | BindingFlags.NonPublic)
             ?? throw new InvalidOperationException("RemoveAzureBlobReferenceAnnotations method was not found.");
 
-        method.MakeGenericMethod(typeof(TResource)).Invoke(null, [builder, resource, removeWaitAnnotations]);
+        method.MakeGenericMethod(typeof(TResource)).Invoke(null, [builder, resource, waitResourcesToRemove]);
     }
 
     private static async Task<Dictionary<string, object>> GetEnvironmentVariablesAsync(

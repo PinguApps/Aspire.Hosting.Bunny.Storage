@@ -1,5 +1,6 @@
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
+using Aspire.Hosting.Pipelines;
 
 namespace Aspire.Hosting.Bunny.Storage;
 
@@ -15,10 +16,21 @@ public static class BunnyStorageReferenceBuilderExtensions
         ArgumentNullException.ThrowIfNull(storage);
 
         AzureBlobStorageContainerResource resource = storage.Resource;
+        AzureStorageResource storageResource = resource.Parent.Parent;
+        bool storageParentWillBeExcluded = !builder.ApplicationBuilder.ExecutionContext.IsRunMode
+            && !BunnyStorageBuilderExtensions.HasAzureStorageChildrenRequiringProvisioning(
+                builder.ApplicationBuilder,
+                storageResource);
+        IResource[] waitResources = builder.ApplicationBuilder.ExecutionContext.IsRunMode
+            ? []
+            : storageParentWillBeExcluded
+                ? [resource, resource.Parent, storageResource]
+                : [resource, resource.Parent];
         RemoveAzureBlobReferenceAnnotations(
             builder,
             resource,
-            removeWaitAnnotations: !builder.ApplicationBuilder.ExecutionContext.IsRunMode);
+            waitResources);
+
         EnvironmentCallbackAnnotation? objectStorageEnvironmentCallback = null;
         objectStorageEnvironmentCallback = new EnvironmentCallbackAnnotation(context =>
         {
@@ -90,10 +102,9 @@ public static class BunnyStorageReferenceBuilderExtensions
     private static void RemoveAzureBlobReferenceAnnotations<TDestination>(
         IResourceBuilder<TDestination> builder,
         AzureBlobStorageContainerResource resource,
-        bool removeWaitAnnotations)
+        IReadOnlyCollection<IResource> waitResourcesToRemove)
         where TDestination : IResourceWithEnvironment
     {
-        IResource[] waitResources = [resource, resource.Parent, resource.Parent.Parent];
         bool hasAzureBlobRelationship = builder.Resource.Annotations.Any(annotation =>
             annotation is ResourceRelationshipAnnotation relationship
             && ReferenceEquals(relationship.Resource, resource));
@@ -106,8 +117,8 @@ public static class BunnyStorageReferenceBuilderExtensions
             bool isConnectionStringCallback = hasAzureBlobRelationship
                 && annotation is EnvironmentCallbackAnnotation environmentCallback
                 && EnvironmentCallbackAddsConnectionStringReference(environmentCallback, builder.Resource, resource);
-            bool isWaitAnnotation = removeWaitAnnotations
-                && waitResources.Any(waitResource => AnnotationReferencesResource(annotation, waitResource, "WaitAnnotation"));
+            bool isWaitAnnotation = waitResourcesToRemove.Any(waitResource =>
+                AnnotationReferencesResource(annotation, waitResource, "WaitAnnotation"));
 
             if (isRelationship || isConnectionStringCallback || isWaitAnnotation)
             {
