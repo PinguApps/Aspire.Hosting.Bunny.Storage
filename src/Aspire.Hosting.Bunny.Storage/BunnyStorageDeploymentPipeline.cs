@@ -52,6 +52,7 @@ internal static class BunnyStorageDeploymentPipeline
             client,
             cachedIdentity,
             deploymentStateSectionName,
+            clearCache ? null : (remoteIdentity, cancellationToken) => identityStore.SaveAsync(resource.Name, remoteIdentity, cancellationToken),
             progress => Report(context.Logger, progress),
             context.CancellationToken)
             .ConfigureAwait(false);
@@ -71,7 +72,15 @@ internal static class BunnyStorageDeploymentPipeline
         BunnyStorageRemoteIdentityState? cachedIdentity,
         CancellationToken cancellationToken)
     {
-        return await ExecuteCoreAsync(deployment, client, cachedIdentity, deploymentStateSectionName: null, progressReporter: null, cancellationToken).ConfigureAwait(false);
+        return await ExecuteCoreAsync(
+            deployment,
+            client,
+            cachedIdentity,
+            deploymentStateSectionName: null,
+            remoteIdentityCreatedAsync: null,
+            progressReporter: null,
+            cancellationToken)
+            .ConfigureAwait(false);
     }
 
     internal static async Task<BunnyStorageRemoteIdentityState?> LoadCachedIdentityAsync(
@@ -90,6 +99,7 @@ internal static class BunnyStorageDeploymentPipeline
         IBunnyStorageManagementClient client,
         BunnyStorageRemoteIdentityState? cachedIdentity,
         string? deploymentStateSectionName,
+        Func<BunnyStorageRemoteIdentityState, CancellationToken, Task>? remoteIdentityCreatedAsync,
         Action<BunnyStorageDeploymentProgress>? progressReporter,
         CancellationToken cancellationToken)
     {
@@ -110,7 +120,7 @@ internal static class BunnyStorageDeploymentPipeline
             remoteIdentity.StorageZone,
             remoteIdentity.ResolvedFromCachedIdentity);
 
-        BunnyStorageCreateFlowResult result = await new BunnyStorageCreateFlow(client)
+        BunnyStorageCreateFlowResult result = await new BunnyStorageCreateFlow(client, remoteIdentityCreatedAsync)
             .ExecuteAsync(deployment, ownership, cancellationToken)
             .ConfigureAwait(false);
 

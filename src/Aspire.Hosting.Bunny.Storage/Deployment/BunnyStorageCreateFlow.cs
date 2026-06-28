@@ -14,16 +14,25 @@ public sealed class BunnyStorageCreateFlow
     private readonly IBunnyStorageManagementClient _client;
     private readonly Func<TimeSpan, CancellationToken, Task> _delayAsync;
     private readonly IReadOnlyList<TimeSpan> _storageZoneDeletionDelays;
+    private readonly Func<BunnyStorageRemoteIdentityState, CancellationToken, Task>? _remoteIdentityCreatedAsync;
 
     public BunnyStorageCreateFlow(IBunnyStorageManagementClient client)
-        : this(client, static (delay, cancellationToken) => Task.Delay(delay, cancellationToken), _storageZoneDeletionRetryDelays)
+        : this(client, static (delay, cancellationToken) => Task.Delay(delay, cancellationToken), _storageZoneDeletionRetryDelays, remoteIdentityCreatedAsync: null)
+    {
+    }
+
+    internal BunnyStorageCreateFlow(
+        IBunnyStorageManagementClient client,
+        Func<BunnyStorageRemoteIdentityState, CancellationToken, Task>? remoteIdentityCreatedAsync)
+        : this(client, static (delay, cancellationToken) => Task.Delay(delay, cancellationToken), _storageZoneDeletionRetryDelays, remoteIdentityCreatedAsync)
     {
     }
 
     internal BunnyStorageCreateFlow(
         IBunnyStorageManagementClient client,
         Func<TimeSpan, CancellationToken, Task> delayAsync,
-        IReadOnlyList<TimeSpan> storageZoneDeletionDelays)
+        IReadOnlyList<TimeSpan> storageZoneDeletionDelays,
+        Func<BunnyStorageRemoteIdentityState, CancellationToken, Task>? remoteIdentityCreatedAsync = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(delayAsync);
@@ -32,6 +41,7 @@ public sealed class BunnyStorageCreateFlow
         _client = client;
         _delayAsync = delayAsync;
         _storageZoneDeletionDelays = storageZoneDeletionDelays;
+        _remoteIdentityCreatedAsync = remoteIdentityCreatedAsync;
     }
 
     public async Task<BunnyStorageCreateFlowResult> ExecuteAsync(
@@ -54,11 +64,15 @@ public sealed class BunnyStorageCreateFlow
         }
 
         zone = BunnyStorageReconciler.Reconcile(deployment, zone);
-        BunnyPullZoneDetails? pullZone = await EnsurePullZoneAsync(deployment, zone, cancellationToken).ConfigureAwait(false);
         BunnyStorageRemoteIdentityState remoteIdentity = new(
             zone.Name,
             zone.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (created && _remoteIdentityCreatedAsync is not null)
+        {
+            await _remoteIdentityCreatedAsync(remoteIdentity, cancellationToken).ConfigureAwait(false);
+        }
 
+        BunnyPullZoneDetails? pullZone = await EnsurePullZoneAsync(deployment, zone, cancellationToken).ConfigureAwait(false);
         return new BunnyStorageCreateFlowResult(zone, pullZone, created, remoteIdentity);
     }
 

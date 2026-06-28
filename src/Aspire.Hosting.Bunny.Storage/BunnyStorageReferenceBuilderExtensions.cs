@@ -19,7 +19,8 @@ public static class BunnyStorageReferenceBuilderExtensions
             builder,
             resource,
             removeWaitAnnotations: !builder.ApplicationBuilder.ExecutionContext.IsRunMode);
-        builder.WithAnnotation(new EnvironmentCallbackAnnotation(context =>
+        EnvironmentCallbackAnnotation? objectStorageEnvironmentCallback = null;
+        objectStorageEnvironmentCallback = new EnvironmentCallbackAnnotation(context =>
         {
             string prefix = $"ObjectStorage__{resource.Name}__";
             if (context.ExecutionContext.Operation == DistributedApplicationOperation.Run)
@@ -30,6 +31,7 @@ public static class BunnyStorageReferenceBuilderExtensions
                 return;
             }
 
+            ThrowIfAzureReferenceWasAddedAfterObjectStorage(builder.Resource, resource, objectStorageEnvironmentCallback!);
             RemoveAzureBlobConnectionReferences(context, resource);
 
             BunnyStorageOutputs outputs = resource.TryGetBunnyStorageOutputs()
@@ -39,7 +41,8 @@ public static class BunnyStorageReferenceBuilderExtensions
             context.EnvironmentVariables[$"{prefix}Bunny__StorageZoneName"] = outputs.StorageZoneName;
             context.EnvironmentVariables[$"{prefix}Bunny__AccessKey"] = outputs.AccessKey;
             context.EnvironmentVariables[$"{prefix}Bunny__Endpoint"] = outputs.StorageEndpoint;
-        }));
+        });
+        builder.WithAnnotation(objectStorageEnvironmentCallback);
         builder.WithManifestPublishingCallback(_ =>
         {
             if (resource.TryGetBunnyStorageOutputs() is not null)
@@ -50,6 +53,38 @@ public static class BunnyStorageReferenceBuilderExtensions
         });
 
         return builder;
+    }
+
+    private static void ThrowIfAzureReferenceWasAddedAfterObjectStorage<TDestination>(
+        TDestination targetResource,
+        AzureBlobStorageContainerResource resource,
+        EnvironmentCallbackAnnotation objectStorageEnvironmentCallback)
+        where TDestination : IResourceWithEnvironment
+    {
+        int objectStorageCallbackIndex = targetResource.Annotations.IndexOf(objectStorageEnvironmentCallback);
+        if (objectStorageCallbackIndex < 0)
+        {
+            return;
+        }
+
+        IResource[] waitResources = [resource, resource.Parent, resource.Parent.Parent];
+        for (int i = objectStorageCallbackIndex + 1; i < targetResource.Annotations.Count; i++)
+        {
+            IResourceAnnotation annotation = targetResource.Annotations[i];
+            bool isRelationship = annotation is ResourceRelationshipAnnotation relationship
+                && ReferenceEquals(relationship.Resource, resource);
+            bool isConnectionStringCallback = annotation is EnvironmentCallbackAnnotation environmentCallback
+                && EnvironmentCallbackAddsConnectionStringReference(environmentCallback, targetResource, resource);
+            bool isWaitAnnotation = waitResources.Any(waitResource =>
+                AnnotationReferencesResource(annotation, waitResource, "WaitAnnotation"));
+
+            if (isRelationship || isConnectionStringCallback || isWaitAnnotation)
+            {
+                throw new InvalidOperationException(
+                    $"WithObjectStorage({resource.Name}) must be called after WithReference({resource.Name}) and WaitFor({resource.Name}). " +
+                    "Bunny-backed object storage removes Azure Blob references during deploy, but Azure references were added afterwards.");
+            }
+        }
     }
 
     private static void RemoveAzureBlobReferenceAnnotations<TDestination>(
