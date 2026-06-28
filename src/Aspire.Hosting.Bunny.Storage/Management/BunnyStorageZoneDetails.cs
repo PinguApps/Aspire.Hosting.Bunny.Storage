@@ -16,9 +16,11 @@ public sealed class BunnyStorageZoneDetails
     [JsonPropertyName("Region")]
     public string Region { get; set; } = string.Empty;
 
+#pragma warning disable CA1819
     [JsonPropertyName("ReplicationRegions")]
-    public List<string>? ReplicationRegions { get; set; }
+    public string[]? ReplicationRegions { get; set; }
 
     [JsonPropertyName("PullZones")]
-    public List<BunnyPullZoneDetails>? PullZones { get; set; }
+    public BunnyPullZoneDetails[]? PullZones { get; set; }
+#pragma warning restore CA1819
 }
