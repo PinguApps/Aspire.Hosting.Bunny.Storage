@@ -186,7 +186,7 @@ public sealed class BunnyStorageHostingTests
     }
 
     [Fact]
-    public async Task WithObjectStorageKeepsAzureReferenceDuringRun()
+    public async Task WithObjectStorageInjectsAzureProviderDuringRun()
     {
         IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
         IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
@@ -202,8 +202,10 @@ public sealed class BunnyStorageHostingTests
         Dictionary<string, object> environmentVariables =
             await GetEnvironmentVariablesAsync(web.Resource, DistributedApplicationOperation.Run);
 
-        Assert.Contains("ConnectionStrings__media", environmentVariables);
+        Assert.DoesNotContain("ConnectionStrings__media", environmentVariables);
         Assert.Equal("AzureBlob", environmentVariables["ObjectStorage__media__Provider"]);
+        Assert.Contains("ObjectStorage__media__Azure__ConnectionString", environmentVariables);
+        Assert.Equal("media", environmentVariables["ObjectStorage__media__Azure__ContainerName"]);
     }
 
     [Fact]
@@ -225,6 +227,55 @@ public sealed class BunnyStorageHostingTests
 
         Assert.DoesNotContain("ConnectionStrings__media", environmentVariables);
         Assert.Equal("Bunny", environmentVariables["ObjectStorage__media__Provider"]);
+        Assert.DoesNotContain(environmentVariables.Values, value =>
+            value is IValueWithReferences references
+            && references.References.Contains(media.Resource));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource));
+    }
+
+    [Fact]
+    public void WithObjectStorageRemovesAzureWaitsDuringDeploy()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WaitFor(media);
+
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, removeWaitAnnotations: true);
+
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent));
+        Assert.DoesNotContain(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource.Parent.Parent));
+    }
+
+    [Fact]
+    public void WithObjectStorageKeepsAzureWaitsDuringRun()
+    {
+        IDistributedApplicationBuilder app = DistributedApplication.CreateBuilder();
+        IResourceBuilder<ParameterResource> apiKey = app.AddParameter("bunny-api-key", secret: true);
+        IResourceBuilder<AzureBlobStorageContainerResource> media = app.AddAzureStorage("storage")
+            .RunAsEmulator()
+            .AddBlobContainer("media", "media")
+            .PublishToBunny("my-zone", apiKey, configure: options => options.PublicBaseUrl = "https://my-zone.b-cdn.net");
+        IResourceBuilder<ContainerResource> web = app.AddContainer("web", "example/web");
+
+        web.WithReference(media)
+            .WaitFor(media);
+
+        InvokeRemoveAzureBlobReferenceAnnotations(web, media.Resource, removeWaitAnnotations: false);
+
+        Assert.Contains(web.Resource.Annotations, annotation =>
+            AnnotationReferencesResource(annotation, media.Resource, "WaitAnnotation"));
     }
 
     [Fact]
@@ -621,6 +672,18 @@ public sealed class BunnyStorageHostingTests
         method.Invoke(null, [resource]);
     }
 
+    private static void InvokeRemoveAzureBlobReferenceAnnotations<TResource>(
+        IResourceBuilder<TResource> builder,
+        AzureBlobStorageContainerResource resource,
+        bool removeWaitAnnotations)
+        where TResource : IResourceWithEnvironment
+    {
+        MethodInfo method = typeof(BunnyStorageReferenceBuilderExtensions).GetMethod("RemoveAzureBlobReferenceAnnotations", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("RemoveAzureBlobReferenceAnnotations method was not found.");
+
+        method.MakeGenericMethod(typeof(TResource)).Invoke(null, [builder, resource, removeWaitAnnotations]);
+    }
+
     private static async Task<Dictionary<string, object>> GetEnvironmentVariablesAsync(
         ContainerResource resource,
         DistributedApplicationOperation operation)
@@ -638,6 +701,23 @@ public sealed class BunnyStorageHostingTests
         }
 
         return environmentVariables;
+    }
+
+    private static bool AnnotationReferencesResource(IResourceAnnotation annotation, IResource resource)
+    {
+        return annotation.GetType()
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Any(property =>
+            {
+                object? value = property.GetValue(annotation);
+                return ReferenceEquals(value, resource);
+            });
+    }
+
+    private static bool AnnotationReferencesResource(IResourceAnnotation annotation, IResource resource, string annotationTypeName)
+    {
+        return string.Equals(annotation.GetType().Name, annotationTypeName, StringComparison.Ordinal)
+            && AnnotationReferencesResource(annotation, resource);
     }
 
     private sealed class FakeBunnyStorageManagementClient : IBunnyStorageManagementClient

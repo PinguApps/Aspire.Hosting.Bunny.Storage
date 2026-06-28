@@ -15,6 +15,10 @@ public static class BunnyStorageReferenceBuilderExtensions
         ArgumentNullException.ThrowIfNull(storage);
 
         AzureBlobStorageContainerResource resource = storage.Resource;
+        RemoveAzureBlobReferenceAnnotations(
+            builder,
+            resource,
+            removeWaitAnnotations: !builder.ApplicationBuilder.ExecutionContext.IsRunMode);
         builder.WithAnnotation(new EnvironmentCallbackAnnotation(context =>
         {
             string prefix = $"ObjectStorage__{resource.Name}__";
@@ -46,6 +50,75 @@ public static class BunnyStorageReferenceBuilderExtensions
         });
 
         return builder;
+    }
+
+    private static void RemoveAzureBlobReferenceAnnotations<TDestination>(
+        IResourceBuilder<TDestination> builder,
+        AzureBlobStorageContainerResource resource,
+        bool removeWaitAnnotations)
+        where TDestination : IResourceWithEnvironment
+    {
+        IResource[] waitResources = [resource, resource.Parent, resource.Parent.Parent];
+        bool hasAzureBlobRelationship = builder.Resource.Annotations.Any(annotation =>
+            annotation is ResourceRelationshipAnnotation relationship
+            && ReferenceEquals(relationship.Resource, resource));
+
+        for (int i = builder.Resource.Annotations.Count - 1; i >= 0; i--)
+        {
+            IResourceAnnotation annotation = builder.Resource.Annotations[i];
+            bool isRelationship = annotation is ResourceRelationshipAnnotation relationship
+                && ReferenceEquals(relationship.Resource, resource);
+            bool isConnectionStringCallback = hasAzureBlobRelationship
+                && annotation is EnvironmentCallbackAnnotation environmentCallback
+                && EnvironmentCallbackAddsConnectionStringReference(environmentCallback, builder.Resource, resource);
+            bool isWaitAnnotation = removeWaitAnnotations
+                && waitResources.Any(waitResource => AnnotationReferencesResource(annotation, waitResource, "WaitAnnotation"));
+
+            if (isRelationship || isConnectionStringCallback || isWaitAnnotation)
+            {
+                builder.Resource.Annotations.RemoveAt(i);
+            }
+        }
+    }
+
+    private static bool AnnotationReferencesResource(
+        IResourceAnnotation annotation,
+        IResource resource,
+        string annotationTypeName)
+    {
+        if (!string.Equals(annotation.GetType().Name, annotationTypeName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        object? value = annotation.GetType().GetProperty("Resource")?.GetValue(annotation);
+        return ReferenceEquals(value, resource);
+    }
+
+    private static bool EnvironmentCallbackAddsConnectionStringReference(
+        EnvironmentCallbackAnnotation annotation,
+        IResourceWithEnvironment targetResource,
+        AzureBlobStorageContainerResource referencedResource)
+    {
+        Dictionary<string, object> environmentVariables = [];
+        EnvironmentCallbackContext context = new(
+            new DistributedApplicationExecutionContext(DistributedApplicationOperation.Run),
+            targetResource,
+            environmentVariables,
+            CancellationToken.None);
+
+        try
+        {
+            annotation.Callback(context).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            return false;
+        }
+
+        return environmentVariables.TryGetValue($"ConnectionStrings__{referencedResource.Name}", out object? value)
+            && value is ConnectionStringReference reference
+            && ReferenceEquals(reference.Resource, referencedResource);
     }
 
     private static void RemoveAzureBlobConnectionReferences(

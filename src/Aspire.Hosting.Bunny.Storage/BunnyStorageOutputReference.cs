@@ -4,14 +4,12 @@ using Aspire.Hosting.Azure;
 namespace Aspire.Hosting.Bunny.Storage;
 
 [AspireExport("pinguapps.bunny.storage.outputReference", ExposeProperties = false, ExposeMethods = false)]
-public sealed class BunnyStorageOutputReference : IExpressionValue, IValueProvider, IManifestExpressionProvider, IValueWithReferences
+public sealed class BunnyStorageOutputReference : IExpressionValue, IValueProvider, IManifestExpressionProvider
 {
-    private readonly AzureBlobStorageContainerResource _resource;
     private string? _value;
 
     internal BunnyStorageOutputReference(AzureBlobStorageContainerResource resource, string name, bool secret = false)
     {
-        _resource = resource;
         Name = name;
         Secret = secret;
         ValueExpression = $"{{{resource.Name}.outputs.{name}}}";
@@ -22,9 +20,6 @@ public sealed class BunnyStorageOutputReference : IExpressionValue, IValueProvid
 
     [AspireExportIgnore(Reason = "Output metadata is not part of the TypeScript authoring surface.")]
     public bool Secret { get; }
-
-    [AspireExportIgnore(Reason = "Reference mechanics are consumed by Aspire.")]
-    public IEnumerable<object> References => [_resource];
 
     [AspireExportIgnore(Reason = "Reference mechanics are consumed by Aspire.")]
     public string ValueExpression { get; }
