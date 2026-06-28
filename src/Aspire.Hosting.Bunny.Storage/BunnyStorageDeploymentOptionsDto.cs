@@ -6,7 +6,9 @@ public sealed class BunnyStorageDeploymentOptionsDto
 
     public BunnyStorageRegion Region { get; set; } = BunnyStorageRegion.De;
 
-    public List<BunnyStorageRegion>? ReplicationRegions { get; set; }
+#pragma warning disable CA1819
+    public BunnyStorageRegion[]? ReplicationRegions { get; set; }
+#pragma warning restore CA1819
 
     public bool CreatePullZone { get; set; }
 
@@ -32,7 +34,7 @@ public sealed class BunnyStorageDeploymentOptionsDto
         };
         if (ReplicationRegions is not null)
         {
-            options.SetReplicationRegions([.. ReplicationRegions]);
+            options.SetReplicationRegions(ReplicationRegions);
         }
 
         return options;
