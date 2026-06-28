@@ -448,6 +448,25 @@ public sealed class BunnyStorageHostingTests
         Assert.Contains("linked to storage zone", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task PullZoneAdoptionFailsWhenExistingZoneIsNotLinkedToStorageZone()
+    {
+        FakeBunnyStorageManagementClient client = new();
+        client.PullZones.Add(new BunnyPullZoneDetails
+        {
+            Id = 10,
+            Name = "my-zone",
+            StorageZoneId = null,
+            OriginUrl = "https://storage.bunnycdn.com/my-zone/",
+        });
+        BunnyStorageResolvedDeployment deployment = CreateDeployment(createPullZone: true);
+
+        InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BunnyStorageDeploymentPipeline.ExecuteAsync(deployment, client, cachedIdentity: null, CancellationToken.None));
+
+        Assert.Contains("not linked to a storage zone", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData(false, false, false, "disabled")]
     [InlineData(true, true, false, "suspended")]

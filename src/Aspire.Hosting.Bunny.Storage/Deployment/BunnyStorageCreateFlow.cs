@@ -143,7 +143,13 @@ public sealed class BunnyStorageCreateFlow
                 $"Bunny Storage pull zone '{existing.Name}' has URL token authentication enabled and cannot serve unsigned public object-storage URLs.");
         }
 
-        if (existing.StorageZoneId is not null && existing.StorageZoneId != zone.Id)
+        if (existing.StorageZoneId is null)
+        {
+            throw new InvalidOperationException(
+                $"Bunny Storage pull zone '{existing.Name}' is not linked to a storage zone and cannot be adopted for storage zone id '{zone.Id}'.");
+        }
+
+        if (existing.StorageZoneId != zone.Id)
         {
             throw new InvalidOperationException(
                 $"Bunny Storage pull zone '{existing.Name}' is linked to storage zone id '{existing.StorageZoneId}', expected '{zone.Id}'.");
