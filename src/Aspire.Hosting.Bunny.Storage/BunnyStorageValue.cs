@@ -5,9 +5,15 @@ namespace Aspire.Hosting.Bunny.Storage;
 [AspireExportIgnore(Reason = "TypeScript AppHosts use parameter builders instead.")]
 public sealed class BunnyStorageValue
 {
-    private BunnyStorageValue(string literalValue) => LiteralValue = literalValue;
+    private BunnyStorageValue(string literalValue)
+    {
+        LiteralValue = literalValue;
+    }
 
-    private BunnyStorageValue(ParameterResource parameter) => Parameter = parameter;
+    private BunnyStorageValue(ParameterResource parameter)
+    {
+        Parameter = parameter;
+    }
 
     public string? LiteralValue { get; }
 
@@ -31,5 +37,8 @@ public sealed class BunnyStorageValue
         return FromParameter(parameter.Resource);
     }
 
-    public static implicit operator BunnyStorageValue(string value) => FromString(value);
+    public static implicit operator BunnyStorageValue(string value)
+    {
+        return FromString(value);
+    }
 }

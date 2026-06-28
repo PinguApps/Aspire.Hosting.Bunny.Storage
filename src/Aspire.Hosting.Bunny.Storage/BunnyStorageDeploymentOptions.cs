@@ -22,7 +22,7 @@ public sealed class BunnyStorageDeploymentOptions
 
     public BunnyStorageRegion Region
     {
-        get => field;
+        get;
         set
         {
             field = value;
@@ -32,7 +32,7 @@ public sealed class BunnyStorageDeploymentOptions
 
     public bool CreatePullZone
     {
-        get => field;
+        get;
         set
         {
             field = value;
@@ -42,7 +42,7 @@ public sealed class BunnyStorageDeploymentOptions
 
     public string? PullZoneName
     {
-        get => field;
+        get;
         set
         {
             field = value;
@@ -52,7 +52,7 @@ public sealed class BunnyStorageDeploymentOptions
 
     public string? PublicBaseUrl
     {
-        get => field;
+        get;
         set
         {
             field = value;

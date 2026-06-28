@@ -17,8 +17,8 @@ public sealed class BunnyStorageZoneDetails
     public string Region { get; set; } = string.Empty;
 
     [JsonPropertyName("ReplicationRegions")]
-    public string[]? ReplicationRegions { get; set; }
+    public List<string>? ReplicationRegions { get; set; }
 
     [JsonPropertyName("PullZones")]
-    public BunnyPullZoneDetails[]? PullZones { get; set; }
+    public List<BunnyPullZoneDetails>? PullZones { get; set; }
 }

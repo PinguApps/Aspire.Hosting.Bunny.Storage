@@ -13,7 +13,10 @@ public sealed class BunnyStorageRemoteIdentityDeploymentStateStore
 
     private readonly IDeploymentStateManager _stateManager;
 
-    public BunnyStorageRemoteIdentityDeploymentStateStore(IDeploymentStateManager stateManager) => _stateManager = stateManager;
+    public BunnyStorageRemoteIdentityDeploymentStateStore(IDeploymentStateManager stateManager)
+    {
+        _stateManager = stateManager;
+    }
 
     public async Task<BunnyStorageRemoteIdentityState?> LoadAsync(string resourceName, CancellationToken cancellationToken)
     {
@@ -33,5 +36,8 @@ public sealed class BunnyStorageRemoteIdentityDeploymentStateStore
         await _stateManager.SaveSectionAsync(section, cancellationToken).ConfigureAwait(false);
     }
 
-    public static string BuildSectionName(string resourceName) => $"{SectionPrefix}.{resourceName}";
+    public static string BuildSectionName(string resourceName)
+    {
+        return $"{SectionPrefix}.{resourceName}";
+    }
 }

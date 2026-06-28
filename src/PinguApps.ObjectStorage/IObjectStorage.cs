@@ -4,17 +4,17 @@ namespace PinguApps.ObjectStorage;
 public interface IObjectStorage
 {
     /// <summary>Writes an object, replacing any existing object with the same key.</summary>
-    Task PutAsync(string key, Stream content, string contentType, CancellationToken cancellationToken = default);
+    public Task PutAsync(string key, Stream content, string contentType, CancellationToken cancellationToken = default);
 
     /// <summary>Opens an object for reading.</summary>
-    Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default);
+    public Task<Stream> OpenReadAsync(string key, CancellationToken cancellationToken = default);
 
     /// <summary>Returns whether an object exists.</summary>
-    Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default);
+    public Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default);
 
     /// <summary>Deletes an object if it exists.</summary>
-    Task DeleteAsync(string key, CancellationToken cancellationToken = default);
+    public Task DeleteAsync(string key, CancellationToken cancellationToken = default);
 
     /// <summary>Returns a public read URL for an object key.</summary>
-    string GetPublicUrl(string key);
+    public string GetPublicUrl(string key);
 }
