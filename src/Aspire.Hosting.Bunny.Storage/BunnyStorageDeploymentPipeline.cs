@@ -1,7 +1,6 @@
 #pragma warning disable ASPIREPIPELINES001
 #pragma warning disable ASPIREPIPELINES002
 
-using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
 using Aspire.Hosting.Bunny.Storage.Deployment;
 using Aspire.Hosting.Bunny.Storage.Management;
@@ -131,7 +130,7 @@ internal static class BunnyStorageDeploymentPipeline
     {
         if (!string.IsNullOrWhiteSpace(deployment.Options.PublicBaseUrl))
         {
-            return deployment.Options.PublicBaseUrl!;
+            return deployment.Options.PublicBaseUrl;
         }
 
         if (pullZone is not null)

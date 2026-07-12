@@ -6,7 +6,10 @@ public sealed class BunnyStorageRemoteIdentityResolver
 {
     private readonly IBunnyStorageManagementClient _client;
 
-    public BunnyStorageRemoteIdentityResolver(IBunnyStorageManagementClient client) => _client = client;
+    public BunnyStorageRemoteIdentityResolver(IBunnyStorageManagementClient client)
+    {
+        _client = client;
+    }
 
     public async Task<BunnyStorageRemoteIdentityStateResult> ResolveAsync(
         string storageZoneName,
@@ -19,7 +22,7 @@ public sealed class BunnyStorageRemoteIdentityResolver
 
         if (cachedIdentity is null)
         {
-            return new BunnyStorageRemoteIdentityStateResult(byName, ResolvedFromCachedIdentity: false);
+            return new BunnyStorageRemoteIdentityStateResult(byName, resolvedFromCachedIdentity: false);
         }
 
         BunnyStorageZoneDetails? byId = zones.FirstOrDefault(zone =>
@@ -38,7 +41,7 @@ public sealed class BunnyStorageRemoteIdentityResolver
                 $"Bunny Storage resource was previously deployed as '{cachedIdentity.StorageZoneName}' with id '{cachedIdentity.ProviderStorageZoneId}', but that storage zone no longer exists. Delete the deployment-state section{FormatSectionName(deploymentStateSectionName)} before adopting or recreating a different Bunny Storage zone.");
         }
 
-        return new BunnyStorageRemoteIdentityStateResult(byId, ResolvedFromCachedIdentity: true);
+        return new BunnyStorageRemoteIdentityStateResult(byId, resolvedFromCachedIdentity: true);
     }
 
     private static string FormatSectionName(string? deploymentStateSectionName)
@@ -49,4 +52,15 @@ public sealed class BunnyStorageRemoteIdentityResolver
     }
 }
 
-public sealed record BunnyStorageRemoteIdentityStateResult(BunnyStorageZoneDetails? StorageZone, bool ResolvedFromCachedIdentity);
+public sealed record BunnyStorageRemoteIdentityStateResult
+{
+    public BunnyStorageRemoteIdentityStateResult(BunnyStorageZoneDetails? storageZone, bool resolvedFromCachedIdentity)
+    {
+        StorageZone = storageZone;
+        ResolvedFromCachedIdentity = resolvedFromCachedIdentity;
+    }
+
+    public BunnyStorageZoneDetails? StorageZone { get; }
+
+    public bool ResolvedFromCachedIdentity { get; }
+}

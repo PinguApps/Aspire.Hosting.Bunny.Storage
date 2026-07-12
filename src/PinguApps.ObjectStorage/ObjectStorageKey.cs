@@ -6,12 +6,12 @@ internal static class ObjectStorageKey
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        if (Uri.TryCreate(key, UriKind.Absolute, out _))
+        string normalized = key.Replace('\\', '/').TrimStart('/');
+        if (Uri.TryCreate(normalized, UriKind.Absolute, out _))
         {
             throw new ArgumentException("Object storage keys must not be absolute URLs.", nameof(key));
         }
 
-        string normalized = key.Replace('\\', '/').TrimStart('/');
         if (normalized.Length == 0)
         {
             throw new ArgumentException("Object storage key must not be empty.", nameof(key));

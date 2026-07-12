@@ -78,10 +78,7 @@ public static class BunnyStorageBuilderExtensions
         {
             DetachFromAzureProvisioning(builder.Resource);
             ExcludeStorageParentFromManifestIfNoAzureStorageChildrenRemain(builder.ApplicationBuilder, builder.Resource);
-            builder.WithPipelineConfiguration(_ =>
-            {
-                ThrowIfExcludedStorageParentHasAzureChildren(builder.ApplicationBuilder, builder.Resource);
-            });
+            builder.WithPipelineConfiguration(_ => ThrowIfExcludedStorageParentHasAzureChildren(builder.ApplicationBuilder, builder.Resource));
         }
 
         builder.WithAnnotation(
@@ -217,15 +214,32 @@ public static class BunnyStorageBuilderExtensions
 
     private static bool IsNonBlobAzureStorageDescendant(IResource candidate, AzureStorageResource storage)
     {
-        return candidate switch
+        if (candidate is AzureQueueStorageResource queueStorage)
         {
-            AzureQueueStorageResource queueStorage => ReferenceEquals(queueStorage.Parent, storage),
-            AzureQueueStorageQueueResource queue => ReferenceEquals(queue.Parent.Parent, storage),
-            AzureTableStorageResource tableStorage => ReferenceEquals(tableStorage.Parent, storage),
-            AzureDataLakeStorageResource dataLakeStorage => ReferenceEquals(dataLakeStorage.Parent, storage),
-            AzureDataLakeStorageFileSystemResource fileSystem => ReferenceEquals(fileSystem.Parent.Parent, storage),
-            _ => false,
-        };
+            return ReferenceEquals(queueStorage.Parent, storage);
+        }
+
+        if (candidate is AzureQueueStorageQueueResource queue)
+        {
+            return ReferenceEquals(queue.Parent.Parent, storage);
+        }
+
+        if (candidate is AzureTableStorageResource tableStorage)
+        {
+            return ReferenceEquals(tableStorage.Parent, storage);
+        }
+
+        if (candidate is AzureDataLakeStorageResource dataLakeStorage)
+        {
+            return ReferenceEquals(dataLakeStorage.Parent, storage);
+        }
+
+        if (candidate is AzureDataLakeStorageFileSystemResource fileSystem)
+        {
+            return ReferenceEquals(fileSystem.Parent.Parent, storage);
+        }
+
+        return false;
     }
 
     private static ICollection<AzureBlobStorageContainerResource> GetAzureBlobContainers(AzureStorageResource resource)

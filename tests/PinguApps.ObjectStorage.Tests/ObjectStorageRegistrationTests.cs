@@ -1,7 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using PinguApps.ObjectStorage;
 
 namespace PinguApps.ObjectStorage.Tests;
 
@@ -183,12 +182,28 @@ public sealed class ObjectStorageRegistrationTests
         }
     }
 
-    private sealed record RequestSnapshot(
-        HttpMethod Method,
-        Uri RequestUri,
-        string? AccessKey,
-        string? ContentType)
+    private sealed record RequestSnapshot
     {
+        public RequestSnapshot(
+            HttpMethod method,
+            Uri requestUri,
+            string? accessKey,
+            string? contentType)
+        {
+            Method = method;
+            RequestUri = requestUri;
+            AccessKey = accessKey;
+            ContentType = contentType;
+        }
+
+        public HttpMethod Method { get; }
+
+        public Uri RequestUri { get; }
+
+        public string? AccessKey { get; }
+
+        public string? ContentType { get; }
+
         public static RequestSnapshot Create(HttpRequestMessage request)
         {
             string? accessKey = request.Headers.TryGetValues("AccessKey", out IEnumerable<string>? values)

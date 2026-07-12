@@ -1,6 +1,5 @@
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
-using Aspire.Hosting.Pipelines;
 
 namespace Aspire.Hosting.Bunny.Storage;
 
@@ -21,11 +20,13 @@ public static class BunnyStorageReferenceBuilderExtensions
             && !BunnyStorageBuilderExtensions.HasAzureStorageChildrenRequiringProvisioning(
                 builder.ApplicationBuilder,
                 storageResource);
-        IResource[] waitResources = builder.ApplicationBuilder.ExecutionContext.IsRunMode
-            ? []
-            : storageParentWillBeExcluded
+        IResource[] waitResources = [];
+        if (!builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            waitResources = storageParentWillBeExcluded
                 ? [resource, resource.Parent, storageResource]
                 : [resource, resource.Parent];
+        }
         RemoveAzureBlobReferenceAnnotations(
             builder,
             resource,

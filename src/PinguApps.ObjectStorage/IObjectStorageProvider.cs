@@ -4,5 +4,5 @@ namespace PinguApps.ObjectStorage;
 public interface IObjectStorageProvider
 {
     /// <summary>Returns the named storage registration, or throws if it is missing.</summary>
-    IObjectStorage GetRequiredStorage(string name);
+    public IObjectStorage GetRequiredStorage(string name);
 }

@@ -3,7 +3,6 @@
 
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
-using Aspire.Hosting.Bunny.Storage;
 using Aspire.Hosting.Bunny.Storage.Deployment;
 using Aspire.Hosting.Bunny.Storage.Management;
 using Aspire.Hosting.Pipelines;
@@ -11,7 +10,6 @@ using Aspire.Hosting.Publishing;
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace Aspire.Hosting.Bunny.Storage.Tests;
 
@@ -442,7 +440,7 @@ public sealed class BunnyStorageHostingTests
                 [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)])
             .ExecuteAsync(
                 deployment,
-                new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, ExistingZone: null),
+                new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, existingZone: null),
                 CancellationToken.None);
 
         Assert.True(result.Created);
@@ -472,7 +470,7 @@ public sealed class BunnyStorageHostingTests
                     })
                 .ExecuteAsync(
                     deployment,
-                    new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, ExistingZone: null),
+                    new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, existingZone: null),
                     CancellationToken.None));
 
         Assert.Equal("pull zone failed", exception.Message);
@@ -981,8 +979,15 @@ public sealed class BunnyStorageHostingTests
         }
     }
 
-    private sealed class ResponseHandler(HttpResponseMessage response) : HttpMessageHandler
+    private sealed class ResponseHandler : HttpMessageHandler
     {
+        private readonly HttpResponseMessage _response;
+
+        public ResponseHandler(HttpResponseMessage response)
+        {
+            _response = response;
+        }
+
         public string RequestBody { get; private set; } = string.Empty;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -992,13 +997,22 @@ public sealed class BunnyStorageHostingTests
                 RequestBody = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            return response;
+            return _response;
         }
     }
 
-    private sealed class QueueResponseHandler(params HttpResponseMessage[] responses) : HttpMessageHandler
+    private sealed class QueueResponseHandler : HttpMessageHandler
     {
-        private readonly Queue<HttpResponseMessage> _responses = new(responses);
+        private readonly Queue<HttpResponseMessage> _responses;
+
+        public QueueResponseHandler(params HttpResponseMessage[] responses)
+        {
+            _responses = new Queue<HttpResponseMessage>();
+            foreach (HttpResponseMessage response in responses)
+            {
+                _responses.Enqueue(response);
+            }
+        }
 
         public List<string> RequestPaths { get; } = [];
 
@@ -1019,7 +1033,7 @@ public sealed class BunnyStorageHostingTests
         {
             if (!_sections.TryGetValue(sectionName, out DeploymentStateSection? section))
             {
-                section = new DeploymentStateSection(sectionName, new JsonObject(), version: 0);
+                section = new DeploymentStateSection(sectionName, [], version: 0);
                 _sections[sectionName] = section;
             }
 

@@ -8,7 +8,20 @@ public enum BunnyStorageOwnershipResolutionAction
     UseExisting,
 }
 
-public sealed record BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction Action, BunnyStorageZoneDetails? ExistingZone);
+public sealed record BunnyStorageOwnershipResolutionResult
+{
+    public BunnyStorageOwnershipResolutionResult(
+        BunnyStorageOwnershipResolutionAction action,
+        BunnyStorageZoneDetails? existingZone)
+    {
+        Action = action;
+        ExistingZone = existingZone;
+    }
+
+    public BunnyStorageOwnershipResolutionAction Action { get; }
+
+    public BunnyStorageZoneDetails? ExistingZone { get; }
+}
 
 public static class BunnyStorageOwnershipResolver
 {
@@ -18,19 +31,41 @@ public static class BunnyStorageOwnershipResolver
         BunnyStorageZoneDetails? existingZone,
         bool existingZoneResolvedFromCachedIdentity = false)
     {
-        return ownershipMode switch
+        if (ownershipMode == BunnyStorageOwnershipMode.CreateOnly)
         {
-            BunnyStorageOwnershipMode.CreateOnly when existingZone is not null && existingZoneResolvedFromCachedIdentity =>
-                new(BunnyStorageOwnershipResolutionAction.UseExisting, existingZone),
-            BunnyStorageOwnershipMode.CreateOnly when existingZone is not null =>
-                throw new InvalidOperationException($"Bunny Storage zone '{storageZoneName}' already exists, but ownership mode is CreateOnly."),
-            BunnyStorageOwnershipMode.CreateOnly => new(BunnyStorageOwnershipResolutionAction.Create, null),
-            BunnyStorageOwnershipMode.ExistingOnly when existingZone is null =>
-                throw new InvalidOperationException($"Bunny Storage zone '{storageZoneName}' does not exist, but ownership mode is ExistingOnly."),
-            BunnyStorageOwnershipMode.ExistingOnly => new(BunnyStorageOwnershipResolutionAction.UseExisting, existingZone),
-            BunnyStorageOwnershipMode.CreateOrAdopt when existingZone is null => new(BunnyStorageOwnershipResolutionAction.Create, null),
-            BunnyStorageOwnershipMode.CreateOrAdopt => new(BunnyStorageOwnershipResolutionAction.UseExisting, existingZone),
-            _ => throw new ArgumentOutOfRangeException(nameof(ownershipMode), ownershipMode, "The Bunny Storage ownership mode is not supported."),
-        };
+            if (existingZone is not null && existingZoneResolvedFromCachedIdentity)
+            {
+                return new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.UseExisting, existingZone);
+            }
+
+            if (existingZone is not null)
+            {
+                throw new InvalidOperationException($"Bunny Storage zone '{storageZoneName}' already exists, but ownership mode is CreateOnly.");
+            }
+
+            return new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, null);
+        }
+
+        if (ownershipMode == BunnyStorageOwnershipMode.ExistingOnly)
+        {
+            if (existingZone is null)
+            {
+                throw new InvalidOperationException($"Bunny Storage zone '{storageZoneName}' does not exist, but ownership mode is ExistingOnly.");
+            }
+
+            return new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.UseExisting, existingZone);
+        }
+
+        if (ownershipMode == BunnyStorageOwnershipMode.CreateOrAdopt)
+        {
+            if (existingZone is null)
+            {
+                return new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.Create, null);
+            }
+
+            return new BunnyStorageOwnershipResolutionResult(BunnyStorageOwnershipResolutionAction.UseExisting, existingZone);
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(ownershipMode), ownershipMode, "The Bunny Storage ownership mode is not supported.");
     }
 }

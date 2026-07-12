@@ -1,0 +1,46 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+    inputs:
+      run_live_bunny:
+        description: Run credential-gated live Bunny scenarios
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: pull-request-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    uses: ./.github/workflows/_run-tests.yml
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    with:
+      publish_test_results_to_github: ${{ github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork }}
+      publish_test_results_comment_mode: always
+      publish_test_results_check_name: Pull Request Test Results
+
+  live-bunny:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_bunny
+    uses: ./.github/workflows/_run-tests.yml
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    secrets: inherit
+    with:
+      test_filter: Category=live-bunny
+      publish_test_results_to_github: true
+      publish_test_results_comment_mode: off
+      publish_test_results_check_name: Live Bunny Test Results
