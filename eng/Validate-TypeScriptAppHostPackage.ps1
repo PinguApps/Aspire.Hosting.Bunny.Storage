@@ -14,14 +14,15 @@ $packageOutput = Join-Path $artifactsRoot "packages"
 $fixtureWork = Join-Path $artifactsRoot "fixture"
 $nugetPackages = Join-Path $artifactsRoot ".nuget-packages"
 $packageId = "PinguApps.Aspire.Hosting.Bunny.Storage"
+$versionProperty = "-p:Version=$PackageVersion"
 
 Remove-Item $artifactsRoot -Recurse -Force -ErrorAction SilentlyContinue
 New-Item $packageOutput -ItemType Directory -Force | Out-Null
 New-Item $nugetPackages -ItemType Directory -Force | Out-Null
 
 dotnet restore $solutionPath
-dotnet build $solutionPath -c $Configuration --no-restore -p:ContinuousIntegrationBuild=true -p:Version=$PackageVersion
-dotnet pack $solutionPath -c $Configuration --no-build -p:Version=$PackageVersion -o $packageOutput
+dotnet build $solutionPath -c $Configuration --no-restore -p:ContinuousIntegrationBuild=true $versionProperty
+dotnet pack $solutionPath -c $Configuration --no-build $versionProperty -o $packageOutput
 
 $packageFile = Join-Path $packageOutput "$packageId.$PackageVersion.nupkg"
 $packageCacheId = $packageId.ToLowerInvariant()
