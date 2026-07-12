@@ -19,12 +19,9 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "Aspire.AppHost.Sdk",
-        "Aspire.Hosting",
-        "Aspire.Hosting.Azure.Storage"
+        "/^Aspire\\./"
       ],
-      "groupName": "aspire monorepo",
-      "groupSlug": "aspire-monorepo"
+      "enabled": false
     }
   ]
 }
