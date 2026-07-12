@@ -1,4 +1,4 @@
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 /// <summary>Resolves named object storage registrations.</summary>
 public interface IObjectStorageProvider

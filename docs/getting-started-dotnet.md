@@ -4,7 +4,7 @@ Install the hosting and server runtime packages:
 
 ```powershell
 dotnet add package PinguApps.Aspire.Hosting.Bunny.Storage
-dotnet add package PinguApps.ObjectStorage
+dotnet add package PinguApps.Bunny.Storage
 ```
 
 AppHost:
@@ -42,7 +42,7 @@ Call `WithObjectStorage` after `WithReference` and `WaitFor` calls involving the
 Server application:
 
 ```csharp
-using PinguApps.ObjectStorage;
+using PinguApps.Bunny.Storage;
 
 builder.Services.AddObjectStorage(builder.Configuration);
 ```

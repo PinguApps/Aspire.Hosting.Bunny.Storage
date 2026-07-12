@@ -110,7 +110,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Keep this section concise and accurate for the current released state of the repository.
 
 ### Repository Overview
-- This repository contains the `PinguApps.Aspire.Hosting.Bunny.Storage` and `PinguApps.ObjectStorage` NuGet packages. The hosting assembly and C# namespace remain `Aspire.Hosting.Bunny.Storage`.
+- This repository contains the `PinguApps.Aspire.Hosting.Bunny.Storage` and `PinguApps.Bunny.Storage` NuGet packages. The hosting assembly and C# namespace remain `Aspire.Hosting.Bunny.Storage`.
 - The hosting package lets an Aspire AppHost opt an `AzureBlobStorageContainerResource` into Bunny Storage during `aspire deploy`.
 - Consumer usage starts from normal Aspire Azure Blob Storage, such as `builder.AddAzureStorage("storage").RunAsEmulator().AddBlobContainer("media", "media")`, then adds `.PublishToBunny(...)`.
 - Local development should continue to use Azurite. Bunny behavior is deploy-only and opt-in.
@@ -134,9 +134,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - `src/Aspire.Hosting.Bunny.Storage/` contains the Aspire hosting package source.
 - `src/Aspire.Hosting.Bunny.Storage/Management/` contains the typed Bunny management client layer.
 - `src/Aspire.Hosting.Bunny.Storage/Deployment/` contains deploy-time ownership, create, reconcile, identity, and diagnostics logic.
-- `src/PinguApps.ObjectStorage/` contains the runtime provider-neutral object-storage abstraction and implementations.
+- `src/PinguApps.Bunny.Storage/` contains the runtime provider-neutral object-storage abstraction and implementations.
 - `tests/Aspire.Hosting.Bunny.Storage.Tests/` contains hosting package tests.
-- `tests/PinguApps.ObjectStorage.Tests/` contains runtime package tests.
+- `tests/PinguApps.Bunny.Storage.Tests/` contains runtime package tests.
 - `samples/AppHostSnippets/BunnyStorageAppHostSnippets.cs` is the compile-validated sample source used by docs tests.
 - `samples/BunnyStorageManual/` contains the manual local/deploy sample.
 - `samples/TypeScriptAppHost/` contains the maintained TypeScript AppHost sample.

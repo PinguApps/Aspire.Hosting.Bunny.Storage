@@ -1,6 +1,6 @@
 # Runtime Abstraction
 
-`PinguApps.ObjectStorage` provides a small server-side abstraction over Azure Blob Storage and Bunny Storage:
+`PinguApps.Bunny.Storage` provides a small server-side abstraction over Azure Blob Storage and Bunny Storage:
 
 ```csharp
 public interface IObjectStorage

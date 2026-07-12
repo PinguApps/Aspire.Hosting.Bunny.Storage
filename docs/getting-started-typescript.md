@@ -49,7 +49,7 @@ web = await web.withObjectStorage(media);
 await (await builder.build()).run();
 ```
 
-`withObjectStorage` is exported for project resources and should follow `withReference(media)`. The application project installs `PinguApps.ObjectStorage` and registers `AddObjectStorage` exactly like a C# AppHost consumer.
+`withObjectStorage` is exported for project resources and should follow `withReference(media)`. The application project installs `PinguApps.Bunny.Storage` and registers `AddObjectStorage` exactly like a C# AppHost consumer.
 
 The maintained demo is [`samples/TypeScriptAppHost/`](../samples/TypeScriptAppHost/). The NuGet-backed CI fixture is [`tests/Aspire.Hosting.Bunny.Storage.Tests/Fixtures/TypeScriptAppHost/`](../tests/Aspire.Hosting.Bunny.Storage.Tests/Fixtures/TypeScriptAppHost/).
 

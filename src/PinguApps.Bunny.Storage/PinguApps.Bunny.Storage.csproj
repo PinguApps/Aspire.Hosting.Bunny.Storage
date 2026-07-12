@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>PinguApps.ObjectStorage</PackageId>
+    <PackageId>PinguApps.Bunny.Storage</PackageId>
     <Description>Provider-neutral object storage abstraction for Azure Blob Storage and Bunny Storage.</Description>
   </PropertyGroup>
   <ItemGroup>

@@ -1,4 +1,4 @@
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 internal static class ObjectStorageKey
 {

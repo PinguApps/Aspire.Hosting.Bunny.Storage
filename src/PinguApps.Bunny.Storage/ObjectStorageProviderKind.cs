@@ -1,4 +1,4 @@
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 /// <summary>Supported runtime storage providers.</summary>
 public enum ObjectStorageProviderKind

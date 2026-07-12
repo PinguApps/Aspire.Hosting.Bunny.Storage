@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 /// <summary>Bunny Storage HTTP API implementation of <see cref="IObjectStorage"/>.</summary>
 public sealed class BunnyObjectStorage : IObjectStorage

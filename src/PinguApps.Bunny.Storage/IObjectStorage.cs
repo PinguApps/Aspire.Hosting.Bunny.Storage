@@ -1,4 +1,4 @@
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 /// <summary>Provider-neutral object storage operations used by application code.</summary>
 public interface IObjectStorage

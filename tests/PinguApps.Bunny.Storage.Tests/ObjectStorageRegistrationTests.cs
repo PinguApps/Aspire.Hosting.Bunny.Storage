@@ -2,7 +2,7 @@ using System.Net;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace PinguApps.ObjectStorage.Tests;
+namespace PinguApps.Bunny.Storage.Tests;
 
 public sealed class ObjectStorageRegistrationTests
 {

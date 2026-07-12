@@ -9,7 +9,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\PinguApps.ObjectStorage\PinguApps.ObjectStorage.csproj" />
+    <ProjectReference Include="..\..\src\PinguApps.Bunny.Storage\PinguApps.Bunny.Storage.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

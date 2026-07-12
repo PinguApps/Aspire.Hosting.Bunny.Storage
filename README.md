@@ -5,7 +5,7 @@
 `PinguApps.Aspire.Hosting.Bunny.Storage` lets an Aspire AppHost publish a normal Azure Blob container to Bunny Storage during `aspire deploy`.
 
 - Hosting package: `PinguApps.Aspire.Hosting.Bunny.Storage`
-- Runtime package: `PinguApps.ObjectStorage`
+- Runtime package: `PinguApps.Bunny.Storage`
 - Distribution: NuGet for C# and TypeScript AppHosts
 - Tested Aspire baseline: `13.4.6`
 - Local behaviour: Azure Blob Storage through Azurite
@@ -22,7 +22,7 @@ dotnet add package PinguApps.Aspire.Hosting.Bunny.Storage
 Server-side application:
 
 ```powershell
-dotnet add package PinguApps.ObjectStorage
+dotnet add package PinguApps.Bunny.Storage
 ```
 
 ## Minimal C# Example
