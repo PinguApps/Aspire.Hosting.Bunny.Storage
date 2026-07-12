@@ -10,6 +10,9 @@ public static class BunnyStorageReferenceBuilderExtensions
         this IResourceBuilder<ProjectResource> builder,
         IResourceBuilder<AzureBlobStorageContainerResource> storage)
     {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(storage);
+
         return builder.WithObjectStorage(storage);
     }
 
