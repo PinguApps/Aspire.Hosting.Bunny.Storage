@@ -20,7 +20,7 @@ New-Item $packageOutput -ItemType Directory -Force | Out-Null
 New-Item $nugetPackages -ItemType Directory -Force | Out-Null
 
 dotnet restore $solutionPath
-dotnet build $solutionPath -c $Configuration --no-restore -p:ContinuousIntegrationBuild=true
+dotnet build $solutionPath -c $Configuration --no-restore -p:ContinuousIntegrationBuild=true -p:Version=$PackageVersion
 dotnet pack $solutionPath -c $Configuration --no-build -p:Version=$PackageVersion -o $packageOutput
 
 $packageFile = Join-Path $packageOutput "$packageId.$PackageVersion.nupkg"
