@@ -110,7 +110,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - Keep this section concise and accurate for the current released state of the repository.
 
 ### Repository Overview
-- This repository contains `Aspire.Hosting.Bunny.Storage` and `PinguApps.ObjectStorage`.
+- This repository contains the `PinguApps.Aspire.Hosting.Bunny.Storage` and `PinguApps.ObjectStorage` NuGet packages. The hosting assembly and C# namespace remain `Aspire.Hosting.Bunny.Storage`.
 - The hosting package lets an Aspire AppHost opt an `AzureBlobStorageContainerResource` into Bunny Storage during `aspire deploy`.
 - Consumer usage starts from normal Aspire Azure Blob Storage, such as `builder.AddAzureStorage("storage").RunAsEmulator().AddBlobContainer("media", "media")`, then adds `.PublishToBunny(...)`.
 - Local development should continue to use Azurite. Bunny behavior is deploy-only and opt-in.
@@ -139,6 +139,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - `tests/PinguApps.ObjectStorage.Tests/` contains runtime package tests.
 - `samples/AppHostSnippets/BunnyStorageAppHostSnippets.cs` is the compile-validated sample source used by docs tests.
 - `samples/BunnyStorageManual/` contains the manual local/deploy sample.
+- `samples/TypeScriptAppHost/` contains the maintained TypeScript AppHost sample.
+- `eng/Validate-TypeScriptAppHostPackage.ps1` validates the packed NuGet TypeScript export surface and deploy-step discovery.
 - `README.md` is the consumer-facing package guide and should stay aligned with shipped behavior.
 - `.diary/` contains branch-specific session state and must be maintained per the diary rules above.
 
@@ -154,4 +156,5 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ### Testing And Docs
 - Any behavior change must update or add active coverage in the relevant test project.
 - Live-provider scenarios must stay opt-in, skip cleanly without Bunny secrets, and leave the remote account unchanged after the run.
+- TypeScript support must be validated from the packed NuGet package, not only through local project references.
 - Keep `README.md`, `AGENTS.md`, samples, and tests in sync with the actual shipped behavior.

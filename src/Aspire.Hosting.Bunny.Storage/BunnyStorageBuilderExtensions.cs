@@ -98,27 +98,51 @@ public static class BunnyStorageBuilderExtensions
             description: "Provision or reconcile the Bunny Storage zone.");
     }
 
-    [AspireExportIgnore(Reason = "The options DTO includes callback-style C# configuration that is not ATS-compatible yet.")]
+    [AspireExport("pinguapps.bunny.storage.publishToBunny", MethodName = "publishToBunny")]
     public static IResourceBuilder<AzureBlobStorageContainerResource> PublishToBunnyForTypeScript(
         this IResourceBuilder<AzureBlobStorageContainerResource> builder,
         IResourceBuilder<ParameterResource> storageZoneName,
         IResourceBuilder<ParameterResource> apiKey,
         BunnyStorageDeploymentOptionsDto? options = null)
     {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(storageZoneName);
+        ArgumentNullException.ThrowIfNull(apiKey);
+
         BunnyStorageDeploymentOptionsDto dto = options ?? new();
         return builder.PublishToBunny(
             BunnyStorageValue.FromParameter(storageZoneName),
             apiKey,
             dto.GetOwnershipMode(),
-            target =>
-            {
-                BunnyStorageDeploymentOptions source = dto.ToDeploymentOptions();
-                target.Region = source.Region;
-                target.CreatePullZone = source.CreatePullZone;
-                target.PullZoneName = source.PullZoneName;
-                target.PublicBaseUrl = source.PublicBaseUrl;
-                target.SetReplicationRegions([.. source.ReplicationRegions]);
-            });
+            target => CopyOptions(dto.ToDeploymentOptions(), target));
+    }
+
+    private static void CopyOptions(BunnyStorageDeploymentOptions source, BunnyStorageDeploymentOptions target)
+    {
+        if (source.ExplicitSettings.Contains(nameof(BunnyStorageDeploymentOptions.Region)))
+        {
+            target.Region = source.Region;
+        }
+
+        if (source.ExplicitSettings.Contains(nameof(BunnyStorageDeploymentOptions.ReplicationRegions)))
+        {
+            target.SetReplicationRegions([.. source.ReplicationRegions]);
+        }
+
+        if (source.ExplicitSettings.Contains(nameof(BunnyStorageDeploymentOptions.CreatePullZone)))
+        {
+            target.CreatePullZone = source.CreatePullZone;
+        }
+
+        if (source.ExplicitSettings.Contains(nameof(BunnyStorageDeploymentOptions.PullZoneName)))
+        {
+            target.PullZoneName = source.PullZoneName;
+        }
+
+        if (source.ExplicitSettings.Contains(nameof(BunnyStorageDeploymentOptions.PublicBaseUrl)))
+        {
+            target.PublicBaseUrl = source.PublicBaseUrl;
+        }
     }
 
     private static void RemoveExistingBunnyPipelineStep(AzureBlobStorageContainerResource resource)

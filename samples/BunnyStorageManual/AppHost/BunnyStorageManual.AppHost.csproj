@@ -1,7 +1,6 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.4.3">
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <UserSecretsId>4d0839df-95fb-4a31-b137-e4d5c1bdba8b</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>

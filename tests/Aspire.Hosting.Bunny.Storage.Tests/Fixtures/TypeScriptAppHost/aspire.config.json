@@ -1,0 +1,18 @@
+{
+  "appHost": {
+    "path": "apphost.mts",
+    "language": "typescript/nodejs"
+  },
+  "sdk": {
+    "version": "13.4.6"
+  },
+  "channel": "stable",
+  "packages": {
+    "Aspire.Hosting.Azure.Storage": "13.4.6",
+    "PinguApps.Aspire.Hosting.Bunny.Storage": "../../../../src/Aspire.Hosting.Bunny.Storage/Aspire.Hosting.Bunny.Storage.csproj"
+  },
+  "Parameters": {
+    "bunny-storage-zone-name": "typescript-fixture-media",
+    "bunny-api-key": "fixture-management-api-key"
+  }
+}

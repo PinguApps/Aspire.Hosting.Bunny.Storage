@@ -4,11 +4,12 @@
     <IsPublishable>false</IsPublishable>
     <ReqnrollUseIntermediateOutputPathForCodeBehind>true</ReqnrollUseIntermediateOutputPathForCodeBehind>
     <ReqnrollDeleteObsoleteCodeBehindFilesOnClean>true</ReqnrollDeleteObsoleteCodeBehindFilesOnClean>
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(IsTestProject)' == 'true'">
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -29,6 +30,7 @@
     <ProjectReference Include="$(MSBuildThisFileDirectory)build\PinguApps.CodeAnalysis\PinguApps.CodeAnalysis.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
+                      IsAspireProjectResource="false"
                       PrivateAssets="all" />
   </ItemGroup>
 </Project>

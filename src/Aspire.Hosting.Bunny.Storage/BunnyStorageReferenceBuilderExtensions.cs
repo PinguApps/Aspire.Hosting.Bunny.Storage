@@ -5,6 +5,14 @@ namespace Aspire.Hosting.Bunny.Storage;
 
 public static class BunnyStorageReferenceBuilderExtensions
 {
+    [AspireExport("pinguapps.bunny.storage.withObjectStorage", MethodName = "withObjectStorage")]
+    public static IResourceBuilder<ProjectResource> WithObjectStorageForTypeScript(
+        this IResourceBuilder<ProjectResource> builder,
+        IResourceBuilder<AzureBlobStorageContainerResource> storage)
+    {
+        return builder.WithObjectStorage(storage);
+    }
+
     [AspireExportIgnore(Reason = "Generic C# resource-builder callbacks are not a stable guest-language transport contract.")]
     public static IResourceBuilder<TDestination> WithObjectStorage<TDestination>(
         this IResourceBuilder<TDestination> builder,

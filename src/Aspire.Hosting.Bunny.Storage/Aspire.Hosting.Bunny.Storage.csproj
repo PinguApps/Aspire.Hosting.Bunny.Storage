@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <PackageId>Aspire.Hosting.Bunny.Storage</PackageId>
+    <PackageId>PinguApps.Aspire.Hosting.Bunny.Storage</PackageId>
     <Description>Bunny Storage deployment integration for Aspire Azure Blob containers.</Description>
     <EnableAspireIntegrationAnalyzers>true</EnableAspireIntegrationAnalyzers>
   </PropertyGroup>
