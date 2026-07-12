@@ -71,7 +71,8 @@ public sealed class LiveBunnyStorageTests
             byte[] content = Encoding.UTF8.GetBytes("Bunny Storage live integration test.");
 
             using MemoryStream upload = new(content);
-            await storage.PutAsync(
+            await PutWithReadinessRetryAsync(
+                storage,
                 objectKey,
                 upload,
                 "text/plain",
@@ -87,6 +88,38 @@ public sealed class LiveBunnyStorageTests
         finally
         {
             await session.CleanupAsync();
+        }
+    }
+
+    private static async Task PutWithReadinessRetryAsync(
+        IObjectStorage storage,
+        string objectKey,
+        Stream content,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        TimeSpan[] retryDelays =
+        [
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(20),
+        ];
+
+        for (int attempt = 0; ; attempt++)
+        {
+            try
+            {
+                content.Position = 0;
+                await storage.PutAsync(objectKey, content, contentType, cancellationToken);
+                return;
+            }
+            catch (HttpRequestException exception)
+                when (exception.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.NotFound
+                    && attempt < retryDelays.Length)
+            {
+                await Task.Delay(retryDelays[attempt], cancellationToken);
+            }
         }
     }
 }
