@@ -1,7 +1,7 @@
 using System.Text;
 using Aspire.Hosting.Bunny.Storage.Deployment;
 using Aspire.Hosting.Bunny.Storage.Management;
-using PinguApps.ObjectStorage;
+using PinguApps.Bunny.Storage;
 
 namespace Aspire.Hosting.Bunny.Storage.Tests;
 

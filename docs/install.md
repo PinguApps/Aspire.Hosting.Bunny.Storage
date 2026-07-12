@@ -15,7 +15,7 @@ using Aspire.Hosting.Bunny.Storage;
 Server-side applications that consume object storage also install:
 
 ```powershell
-dotnet add package PinguApps.ObjectStorage
+dotnet add package PinguApps.Bunny.Storage
 ```
 
 Do not install the runtime package in browser or Blazor WebAssembly projects because Bunny write credentials must remain server-side.

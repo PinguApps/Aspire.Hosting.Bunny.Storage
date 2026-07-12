@@ -1,4 +1,4 @@
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 /// <summary>Configuration for one named object storage registration.</summary>
 public sealed class ObjectStorageOptions

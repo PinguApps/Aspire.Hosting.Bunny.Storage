@@ -10,7 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Aspire.Hosting.Bunny.Storage\Aspire.Hosting.Bunny.Storage.csproj" />
-    <ProjectReference Include="..\..\src\PinguApps.ObjectStorage\PinguApps.ObjectStorage.csproj" />
+    <ProjectReference Include="..\..\src\PinguApps.Bunny.Storage\PinguApps.Bunny.Storage.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\samples\AppHostSnippets\Projects\Web.cs" Link="Samples\Projects\Web.cs" />

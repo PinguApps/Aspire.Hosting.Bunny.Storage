@@ -1,4 +1,4 @@
-using PinguApps.ObjectStorage;
+using PinguApps.Bunny.Storage;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 

@@ -1,7 +1,7 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 /// <summary>Azure Blob Storage implementation of <see cref="IObjectStorage"/>.</summary>
 public sealed class AzureBlobObjectStorage : IObjectStorage

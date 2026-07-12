@@ -2,6 +2,6 @@
   <PropertyGroup>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\PinguApps.ObjectStorage\PinguApps.ObjectStorage.csproj" />
+    <ProjectReference Include="..\..\..\src\PinguApps.Bunny.Storage\PinguApps.Bunny.Storage.csproj" />
   </ItemGroup>
 </Project>

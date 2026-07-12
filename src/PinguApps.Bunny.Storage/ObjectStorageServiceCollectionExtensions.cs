@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace PinguApps.ObjectStorage;
+namespace PinguApps.Bunny.Storage;
 
 /// <summary>Registers object storage from configuration.</summary>
 public static class ObjectStorageServiceCollectionExtensions
@@ -85,7 +85,7 @@ public static class ObjectStorageServiceCollectionExtensions
             Require(options.Bunny.Endpoint, name, "Bunny:Endpoint");
             IHttpClientFactory httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
             return new BunnyObjectStorage(
-                httpClientFactory.CreateClient("PinguApps.ObjectStorage.Bunny"),
+                httpClientFactory.CreateClient("PinguApps.Bunny.Storage.Bunny"),
                 options.Bunny.StorageZoneName!,
                 options.Bunny.AccessKey!,
                 options.Bunny.Endpoint!,
