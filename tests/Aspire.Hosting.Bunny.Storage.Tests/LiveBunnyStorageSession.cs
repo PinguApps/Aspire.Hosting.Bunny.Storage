@@ -15,9 +15,10 @@ internal sealed class LiveBunnyStorageSession : IDisposable
     public LiveBunnyStorageSession()
     {
         LoadDotEnv();
+        ApiKey = Environment.GetEnvironmentVariable("BUNNY_API_KEY");
     }
 
-    public string? ApiKey => Environment.GetEnvironmentVariable("BUNNY_API_KEY");
+    public string? ApiKey { get; }
 
     public bool HasCredentials => !string.IsNullOrWhiteSpace(ApiKey);
 
@@ -115,7 +116,9 @@ internal sealed class LiveBunnyStorageSession : IDisposable
     private async Task DeleteAsync(string path)
     {
         using HttpRequestMessage request = new(HttpMethod.Delete, path);
-        request.Headers.Add("AccessKey", ApiKey);
+        request.Headers.Add(
+            "AccessKey",
+            ApiKey ?? throw new InvalidOperationException("BUNNY_API_KEY is not configured for live-test cleanup."));
         using HttpResponseMessage response = await _managementHttpClient
             .SendAsync(request, CancellationToken.None)
             .ConfigureAwait(false);
