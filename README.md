@@ -28,8 +28,10 @@ dotnet add package PinguApps.ObjectStorage
 ## Minimal C# Example
 
 ```csharp
+using Aspire.Hosting;
 using Aspire.Hosting.Bunny.Storage;
 
+var builder = DistributedApplication.CreateBuilder(args);
 var bunnyApiKey = builder.AddParameter("bunny-api-key", secret: true);
 
 var media = builder.AddAzureStorage("storage")
@@ -45,6 +47,8 @@ var media = builder.AddAzureStorage("storage")
 builder.AddProject<Projects.Web>("web")
     .WithReference(media)
     .WithObjectStorage(media);
+
+builder.Build().Run();
 ```
 
 Register the runtime abstraction in the server-side application:
