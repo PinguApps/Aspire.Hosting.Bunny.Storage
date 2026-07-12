@@ -1,11 +1,16 @@
 ## Rolling state
-- Goal: Address PR #2 feedback without pushing.
-- Current plan: Finished; user will push local commits.
-- Open questions/risks: Duplicate review comments were addressed by shared commits rather than empty/no-op commits.
+- Goal: Merge current `main` into the feature branch and resolve all conflicts.
+- Current plan: Complete; merge verified locally.
+- Open questions/risks: None.
 - Next actions: User can inspect and push branch.
 - Key paths: `.github/workflows/_run-tests.yml`, `.github/workflows/publish.yml`, `src/Aspire.Hosting.Bunny.Storage/`
 
 ## Session log
+### 2026-07-12 14:59 +01:00 (feature/add-missing-repo-files)
+- Merge `origin/main` and resolve conflicts [build/tests/api] (impact: med)
+  - Why: Prepare the feature branch for merging into `main`.
+  - Change: Preserved later branch review fixes across 11 conflicts; Release build and 55 tests pass (cmds: `git merge origin/main`, `dotnet build -c Release`, `dotnet test -c Release --no-build`)
+
 ### 2026-06-28 23:39 +01:00 (feature/add-missing-repo-files)
 - Fix PR review feedback [build/tests/api] (impact: med)
   - Why: PR #2 had unresolved review threads covering record semantics, DTO array APIs, workflow inputs, analyzer config, and package versioning.
