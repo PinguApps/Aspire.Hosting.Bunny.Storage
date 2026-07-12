@@ -1,58 +1,54 @@
 # Deployment Behaviour
 
-`PublishToBunny` attaches deployment metadata and a provisioning pipeline step to an `AzureBlobStorageContainerResource`.
+`PublishToBunny` and `publishToBunny` are deploy-time integrations.
 
-During `dotnet run` / Aspire run, `WithObjectStorage` injects:
+## Deploy Flow
 
-```text
-ObjectStorage__media__Provider=AzureBlob
-```
+During `aspire deploy`, the package:
 
-During deploy/publish, it injects:
+1. Resolves the storage-zone name and Bunny account API key.
+2. Lists storage zones and validates any cached provider identity.
+3. Applies the selected ownership mode.
+4. Creates the storage zone when allowed and required.
+5. Validates zone name, primary region, and replication regions.
+6. Creates or adopts the requested Pull Zone when enabled.
+7. Validates Pull Zone state, security, origin, and storage-zone linkage.
+8. Populates application-facing object-storage outputs.
 
-```text
-ObjectStorage__media__Provider=Bunny
-```
+The pipeline adds a step named `bunny-storage-<blob-container-resource-name>`. For `media`, `aspire deploy --non-interactive --list-steps` shows `bunny-storage-media` as infrastructure required by the final deploy step.
 
-No fake Azure Blob connection string is emitted for Bunny.
+## Local Behaviour
 
-Ownership modes:
+`aspire start` keeps the Azure Blob container and Azurite configuration. Constructing or running the local AppHost does not call Bunny.
 
-- `CreateOnly`: fail if the Bunny storage zone already exists.
-- `ExistingOnly`: fail if it does not exist.
-- `CreateOrAdopt`: create if missing, otherwise adopt.
+## Deploy Versus Publish
 
-Remote identity is persisted through Aspire deployment state to avoid silently adopting the wrong renamed resource.
+Bunny outputs exist only after the custom deployment step executes. `aspire publish` does not provision Bunny. Application resources using `WithObjectStorage` therefore reject manifest-only publishing and direct users to `aspire deploy`.
 
-If a Bunny storage zone or pull zone is deleted manually outside Aspire, the next deploy can fail because the
-stored provider id no longer exists. This is intentional: the integration will not silently adopt or recreate a
-different Bunny resource while stale deployment state is present.
+## Repeated Deployments
 
-To intentionally start fresh, remove the Bunny remote-identity entries from the Aspire deployment state file shown
-by the deploy logs. Aspire stores section data as flattened keys prefixed by:
+The explicit storage-zone name is the stable identity. Aspire deployment state also caches the Bunny provider ID. A repeated deployment verifies that the cached ID still exists and still has the configured name before reuse.
 
-```text
-Aspire.Hosting.Bunny.Storage.RemoteIdentity.{blob-container-resource-name}
-```
-
-For the sample `media` container, the section is:
+If a zone was deleted outside Aspire, deployment fails instead of silently adopting another resource. Remove the relevant state entries only when intentionally resetting ownership. The state prefix is:
 
 ```text
-Aspire.Hosting.Bunny.Storage.RemoteIdentity.media
+Aspire.Hosting.Bunny.Storage.RemoteIdentity.<blob-container-resource-name>
 ```
 
-Remove entries whose keys start with:
+`aspire deploy --clear-cache` ignores cached identity for that run. Aspire does not persist replacement state during a clear-cache deployment, so remove stale entries for a permanent reset.
 
-```text
-Aspire.Hosting.Bunny.Storage.RemoteIdentity.media:
-```
+## Failure Behaviour
 
-Deleting the whole deployment state file also works, but it resets unrelated Azure deployment state too.
+Deployment fails clearly when:
 
-Running Aspire deploy with `--clear-cache` also ignores this cached Bunny identity. Because Aspire does not save
-deployment state during a clear-cache run, use it for one-off recovery/testing; remove the stale Bunny entries if
-you want the next normal deploy to persist and reuse the newly created Bunny identity.
+- required parameters are missing
+- ownership mode conflicts with existing state
+- cached remote identity is missing or renamed
+- region or replication-region desired state differs
+- Pull Zone creation lacks a name
+- an adopted Pull Zone is disabled, suspended, secured, unlinked, or linked elsewhere
+- Bunny does not return a storage-zone access key
 
-Bunny can keep a deleted storage-zone name reserved for a short period while deletion completes. If Bunny returns
-`storagezone.name_taken` with "currently being deleted", the integration treats that as transient and retries
-briefly. If it still fails, wait for Bunny to release the name or deploy with a different storage-zone name.
+Bunny may temporarily reserve a deleted storage-zone name. The integration retries the provider's `storagezone.name_taken` deletion response before surfacing an actionable failure.
+
+The package never auto-deletes Bunny storage zones or Pull Zones.

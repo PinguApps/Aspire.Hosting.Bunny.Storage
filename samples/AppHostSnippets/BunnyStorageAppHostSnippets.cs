@@ -1,4 +1,7 @@
+using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Bunny.Storage;
+using Aspire.Hosting.Azure;
 
 namespace AppHostSnippets;
 

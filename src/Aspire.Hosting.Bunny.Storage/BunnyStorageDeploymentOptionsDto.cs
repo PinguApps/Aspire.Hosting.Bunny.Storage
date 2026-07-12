@@ -1,16 +1,17 @@
 namespace Aspire.Hosting.Bunny.Storage;
 
+[AspireDto]
 public sealed class BunnyStorageDeploymentOptionsDto
 {
-    public string OwnershipMode { get; set; } = nameof(BunnyStorageOwnershipMode.CreateOrAdopt);
+    public BunnyStorageOwnershipMode? OwnershipMode { get; set; }
 
-    public BunnyStorageRegion Region { get; set; } = BunnyStorageRegion.De;
+    public BunnyStorageRegion? Region { get; set; }
 
 #pragma warning disable CA1819
     public BunnyStorageRegion[]? ReplicationRegions { get; set; }
 #pragma warning restore CA1819
 
-    public bool CreatePullZone { get; set; }
+    public bool? CreatePullZone { get; set; }
 
     public string? PullZoneName { get; set; }
 
@@ -18,20 +19,32 @@ public sealed class BunnyStorageDeploymentOptionsDto
 
     internal BunnyStorageOwnershipMode GetOwnershipMode()
     {
-        return Enum.TryParse(OwnershipMode, ignoreCase: true, out BunnyStorageOwnershipMode mode)
-            ? mode
-            : throw new InvalidOperationException($"Unknown Bunny Storage ownership mode '{OwnershipMode}'.");
+        return OwnershipMode ?? BunnyStorageOwnershipMode.CreateOrAdopt;
     }
 
     internal BunnyStorageDeploymentOptions ToDeploymentOptions()
     {
-        BunnyStorageDeploymentOptions options = new()
+        BunnyStorageDeploymentOptions options = new();
+        if (Region is not null)
         {
-            Region = Region,
-            CreatePullZone = CreatePullZone,
-            PullZoneName = PullZoneName,
-            PublicBaseUrl = PublicBaseUrl,
-        };
+            options.Region = Region.Value;
+        }
+
+        if (CreatePullZone is not null)
+        {
+            options.CreatePullZone = CreatePullZone.Value;
+        }
+
+        if (PullZoneName is not null)
+        {
+            options.PullZoneName = PullZoneName;
+        }
+
+        if (PublicBaseUrl is not null)
+        {
+            options.PublicBaseUrl = PublicBaseUrl;
+        }
+
         if (ReplicationRegions is not null)
         {
             options.SetReplicationRegions(ReplicationRegions);
