@@ -23,3 +23,9 @@
   - Why: A transient 401 caused `StreamContent` disposal before the next retry reused the same stream.
   - Change: Create a fresh memory stream for every upload attempt; reran the credentialed live lifecycle test (files: `tests/Aspire.Hosting.Bunny.Storage.Tests/LiveBunnyStorageTests.cs`)
   - Notes: Live test passes after multiple retries; zero disposable storage zones or Pull Zones remain.
+
+### 2026-07-12 20:29 +01:00 (feature/final-changes)
+- Address PR #4 review threads [api/tests/docs/release] (impact: med)
+  - Why: Resolve all six open review comments with independently traceable fixes.
+  - Change: Added TS bridge guards, retained cleanup credentials, completed README sample, aligned build/pack versions, and required explicit live opt-in (cmds: `dotnet test`, `Validate-TypeScriptAppHostPackage.ps1`, live Bunny test)
+  - Notes: 56 non-live and 1 live test pass; packed TS gate passes; live cleanup leaves zero disposable resources.
