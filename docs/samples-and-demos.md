@@ -28,8 +28,10 @@ CI uses [`eng/Validate-TypeScriptAppHostPackage.ps1`](../eng/Validate-TypeScript
 The `Category=live-bunny` test creates disposable storage and Pull Zones, repeats deployment against the cached identity, exercises runtime put/read/exists/delete operations, and deletes the disposable provider resources in `finally` cleanup.
 
 It requires `BUNNY_API_KEY` through the process environment or a repository-root `.env` file. Without credentials it skips cleanly.
+It also requires `RUN_LIVE_BUNNY_TESTS=true` as explicit consent to create and delete disposable provider resources.
 
 ```powershell
+$env:RUN_LIVE_BUNNY_TESTS = "true"
 dotnet test tests/Aspire.Hosting.Bunny.Storage.Tests/Aspire.Hosting.Bunny.Storage.Tests.csproj `
   -c Release `
   --filter "Category=live-bunny"

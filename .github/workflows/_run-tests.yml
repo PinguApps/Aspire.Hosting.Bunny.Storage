@@ -23,6 +23,10 @@ on:
         required: false
         type: string
         default: Category!=live-bunny
+      run_live_bunny:
+        required: false
+        type: boolean
+        default: false
     secrets:
       BUNNY_API_KEY:
         required: false
@@ -38,6 +42,11 @@ on:
         required: false
         default: Category!=live-bunny
         type: string
+      run_live_bunny:
+        description: Explicitly allow tests that create disposable Bunny resources
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -53,6 +62,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       DOTNET_NOLOGO: true
       BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+      RUN_LIVE_BUNNY_TESTS: ${{ inputs.run_live_bunny }}
 
     steps:
       - name: Checkout repository

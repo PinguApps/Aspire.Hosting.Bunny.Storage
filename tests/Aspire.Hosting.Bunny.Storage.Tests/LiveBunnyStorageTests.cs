@@ -22,6 +22,9 @@ public sealed class LiveBunnyStorageTests
     public async Task LiveDeploymentRedeploysAndSupportsRuntimeObjectOperations()
     {
         using LiveBunnyStorageSession session = new();
+        Assert.SkipUnless(
+            session.HasExplicitOptIn,
+            "Live Bunny tests require RUN_LIVE_BUNNY_TESTS=true in addition to provider credentials.");
         Assert.SkipUnless(session.HasCredentials, "Live Bunny tests require BUNNY_API_KEY.");
 
         string resourceName = LiveBunnyStorageSession.CreateDisposableResourceName("aspire-bunny-live");

@@ -22,6 +22,10 @@ internal sealed class LiveBunnyStorageSession : IDisposable
 
     public bool HasCredentials => !string.IsNullOrWhiteSpace(ApiKey);
 
+    public bool HasExplicitOptIn => bool.TryParse(
+        Environment.GetEnvironmentVariable("RUN_LIVE_BUNNY_TESTS"),
+        out bool enabled) && enabled;
+
     public BunnyStorageManagementClient CreateManagementClient()
     {
         return new BunnyStorageManagementClient(
