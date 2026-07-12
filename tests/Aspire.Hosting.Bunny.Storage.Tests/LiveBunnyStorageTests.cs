@@ -70,11 +70,10 @@ public sealed class LiveBunnyStorageTests
             string objectKey = $"integration-tests/{Guid.NewGuid():N}.txt";
             byte[] content = Encoding.UTF8.GetBytes("Bunny Storage live integration test.");
 
-            using MemoryStream upload = new(content);
             await PutWithReadinessRetryAsync(
                 storage,
                 objectKey,
-                upload,
+                content,
                 "text/plain",
                 TestContext.Current.CancellationToken);
             Assert.True(await storage.ExistsAsync(objectKey, TestContext.Current.CancellationToken));
@@ -94,7 +93,7 @@ public sealed class LiveBunnyStorageTests
     private static async Task PutWithReadinessRetryAsync(
         IObjectStorage storage,
         string objectKey,
-        Stream content,
+        byte[] content,
         string contentType,
         CancellationToken cancellationToken)
     {
@@ -110,8 +109,8 @@ public sealed class LiveBunnyStorageTests
         {
             try
             {
-                content.Position = 0;
-                await storage.PutAsync(objectKey, content, contentType, cancellationToken);
+                using MemoryStream upload = new(content);
+                await storage.PutAsync(objectKey, upload, contentType, cancellationToken);
                 return;
             }
             catch (HttpRequestException exception)

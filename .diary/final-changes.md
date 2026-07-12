@@ -17,3 +17,9 @@
   - Why: Complete real-provider validation using credentials from the external test repository.
   - Change: Ran create/redeploy/Pull Zone/runtime operations/cleanup; added bounded readiness retry after an immediate post-create 401 (cmds: `dotnet test --filter Category=live-bunny`, Bunny list verification)
   - Notes: Live test passes; zero disposable storage zones or Pull Zones remain; 56 non-live tests still pass.
+
+### 2026-07-12 19:57 +01:00 (feature/final-changes)
+- Fix live readiness retry stream reuse [tests/provider] (impact: med)
+  - Why: A transient 401 caused `StreamContent` disposal before the next retry reused the same stream.
+  - Change: Create a fresh memory stream for every upload attempt; reran the credentialed live lifecycle test (files: `tests/Aspire.Hosting.Bunny.Storage.Tests/LiveBunnyStorageTests.cs`)
+  - Notes: Live test passes after multiple retries; zero disposable storage zones or Pull Zones remain.
