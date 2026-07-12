@@ -40,7 +40,7 @@ jobs:
         run: dotnet restore Aspire.Hosting.Bunny.Storage.slnx
 
       - name: Build
-        run: dotnet build Aspire.Hosting.Bunny.Storage.slnx -c Release --no-restore -p:ContinuousIntegrationBuild=true
+        run: dotnet build Aspire.Hosting.Bunny.Storage.slnx -c Release --no-restore -p:ContinuousIntegrationBuild=true -p:Version="${{ env.PACKAGE_VERSION }}"
 
       - name: Pack
         shell: pwsh

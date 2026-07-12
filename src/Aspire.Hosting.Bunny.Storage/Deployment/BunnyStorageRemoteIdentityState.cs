@@ -8,7 +8,13 @@ public sealed record BunnyStorageRemoteIdentityState
         ProviderStorageZoneId = providerStorageZoneId;
     }
 
-    public string StorageZoneName { get; }
+    public string StorageZoneName { get; init; }
 
-    public string ProviderStorageZoneId { get; }
+    public string ProviderStorageZoneId { get; init; }
+
+    public void Deconstruct(out string storageZoneName, out string providerStorageZoneId)
+    {
+        storageZoneName = StorageZoneName;
+        providerStorageZoneId = ProviderStorageZoneId;
+    }
 }

@@ -18,9 +18,17 @@ public sealed record BunnyStorageOwnershipResolutionResult
         ExistingZone = existingZone;
     }
 
-    public BunnyStorageOwnershipResolutionAction Action { get; }
+    public BunnyStorageOwnershipResolutionAction Action { get; init; }
 
-    public BunnyStorageZoneDetails? ExistingZone { get; }
+    public BunnyStorageZoneDetails? ExistingZone { get; init; }
+
+    public void Deconstruct(
+        out BunnyStorageOwnershipResolutionAction action,
+        out BunnyStorageZoneDetails? existingZone)
+    {
+        action = Action;
+        existingZone = ExistingZone;
+    }
 }
 
 public static class BunnyStorageOwnershipResolver

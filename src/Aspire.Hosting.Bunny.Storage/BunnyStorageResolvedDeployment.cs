@@ -16,13 +16,25 @@ public sealed record BunnyStorageResolvedDeployment
         Options = options;
     }
 
-    public string StorageZoneName { get; }
+    public string StorageZoneName { get; init; }
 
-    public BunnyStorageOwnershipMode OwnershipMode { get; }
+    public BunnyStorageOwnershipMode OwnershipMode { get; init; }
 
-    public BunnyStorageManagementCredentials ManagementCredentials { get; }
+    public BunnyStorageManagementCredentials ManagementCredentials { get; init; }
 
-    public BunnyStorageDeploymentOptions Options { get; }
+    public BunnyStorageDeploymentOptions Options { get; init; }
 
     public string StorageEndpoint => Options.Region.GetStorageEndpoint();
+
+    public void Deconstruct(
+        out string storageZoneName,
+        out BunnyStorageOwnershipMode ownershipMode,
+        out BunnyStorageManagementCredentials managementCredentials,
+        out BunnyStorageDeploymentOptions options)
+    {
+        storageZoneName = StorageZoneName;
+        ownershipMode = OwnershipMode;
+        managementCredentials = ManagementCredentials;
+        options = Options;
+    }
 }
