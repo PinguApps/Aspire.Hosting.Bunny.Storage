@@ -7,4 +7,8 @@ public enum BunnyStorageRegion
     La,
     Sg,
     Syd,
+    Uk,
+    Se,
+    Br,
+    Jh,
 }
