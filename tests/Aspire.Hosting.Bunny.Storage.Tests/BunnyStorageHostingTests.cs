@@ -15,6 +15,25 @@ namespace Aspire.Hosting.Bunny.Storage.Tests;
 
 public sealed class BunnyStorageHostingTests
 {
+    [Theory]
+    [InlineData(BunnyStorageRegion.De, "DE", "https://storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.Uk, "UK", "https://uk.storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.Ny, "NY", "https://ny.storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.La, "LA", "https://la.storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.Sg, "SG", "https://sg.storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.Se, "SE", "https://se.storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.Br, "BR", "https://br.storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.Jh, "JH", "https://jh.storage.bunnycdn.com")]
+    [InlineData(BunnyStorageRegion.Syd, "SYD", "https://syd.storage.bunnycdn.com")]
+    public void StorageRegionsMapToProviderCodesAndEndpoints(
+        BunnyStorageRegion region,
+        string expectedProviderCode,
+        string expectedEndpoint)
+    {
+        Assert.Equal(expectedProviderCode, region.ToProviderCode());
+        Assert.Equal(expectedEndpoint, region.GetStorageEndpoint());
+    }
+
     [Fact]
     public void PublishToBunnyAttachesAnnotationOutputsAndPipelineStep()
     {
