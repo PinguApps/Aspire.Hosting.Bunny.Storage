@@ -1,8 +1,8 @@
 ## Rolling state
 - Goal: Mirror Upstash Redis's weekly and manual release-draft publisher for Bunny Storage.
-- Current plan: Push PR Agent edge-case fix, then audit PR #10.
-- Open questions/risks: Gitar automatic review is paused for the billing period; `GITHUB_TOKEN` release events do not trigger the publish workflow.
-- Next actions: Push empty-release fix, reply to PR Agent, await current-HEAD review, complete final audit.
+- Current plan: PR #10 is implemented; CI and PR Agent passed on the latest workflow commit.
+- Open questions/risks: Gitar automatic review is paused for the billing period, so its exact-HEAD check is absent; `GITHUB_TOKEN` release events do not trigger the publish workflow.
+- Next actions: Await Gitar review when automatic processing resumes or a manual review is authorized; merge PR #10 after its current-HEAD review passes.
 - Key paths: `.github/workflows/publish-release-draft.yml`, `.github/workflows/publish.yml`
 
 ## Session log
@@ -22,4 +22,4 @@
 - Handle empty release list [build] (impact: low)
   - Why: PR Agent found `jq add` returns `null` for zero releases.
   - Change: Defaulted release aggregation to `[]` (file: `.github/workflows/publish-release-draft.yml`).
-  - Notes: `actionlint` passed; prior CI run passed tests and packed TypeScript gate.
+  - Notes: `actionlint`, 65 tests, packed TypeScript gate, and PR Agent review passed; Gitar dashboard approved but automatic current-HEAD review paused.
