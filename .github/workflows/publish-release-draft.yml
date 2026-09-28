@@ -27,6 +27,7 @@ jobs:
 
       - name: Publish draft if main has new commits
         id: publish
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
