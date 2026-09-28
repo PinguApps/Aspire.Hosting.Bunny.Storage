@@ -32,7 +32,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          releases=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate | jq -s 'add')
+          releases=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate | jq -s 'add // []')
           latest_tag=$(jq -r '[.[] | select(.draft == false)] | max_by(.published_at) | .tag_name // empty' <<< "$releases")
           if [[ -z "$latest_tag" ]]; then
             echo "No published release to compare against"
