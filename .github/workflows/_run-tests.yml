@@ -104,10 +104,9 @@ jobs:
             "-c",
             "Release",
             "--no-restore",
-            "--logger",
-            "trx;LogFilePrefix=test-results",
             "--results-directory",
-            "TestResults"
+            "TestResults",
+            "--report-xunit-trx"
           )
 
           if (-not [string]::IsNullOrWhiteSpace($testFilter)) {
