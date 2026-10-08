@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>PinguApps.Aspire.Hosting.Bunny.Storage</PackageId>
+    <PackageIcon>icon.png</PackageIcon>
     <Description>Bunny Storage deployment integration for Aspire Azure Blob containers.</Description>
     <EnableAspireIntegrationAnalyzers>true</EnableAspireIntegrationAnalyzers>
   </PropertyGroup>
@@ -10,5 +11,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="icon.png" Pack="true" PackagePath="/" />
   </ItemGroup>
 </Project>
