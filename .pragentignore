@@ -1,0 +1,8 @@
+# PR Agent review scope; assess new artifacts with $pragent-ignore.
+# Bulky Aspire-generated ATS SDK snapshots; source: microsoft/aspire-skills
+# recorded in skills-lock.json. Review fixture inputs and validate consumers.
+# Keep readable module helpers, generation metadata and agent instructions in scope.
+/.agents/skills/aspire-deployment/evals/fixtures/ts-apphost/.modules/aspire.ts
+/.agents/skills/aspire-monitoring/evals/fixtures/ts-apphost/.modules/aspire.ts
+/.agents/skills/aspire-orchestration/evals/fixtures/ts-apphost/.modules/aspire.ts
+/.agents/skills/aspire/evals/fixtures/ts-apphost/.modules/aspire.ts
