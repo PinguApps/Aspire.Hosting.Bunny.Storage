@@ -27,7 +27,7 @@ TypeScript AppHosts consume the hosting integration through NuGet and Aspire's g
 ```json
 {
   "packages": {
-    "Aspire.Hosting.Azure.Storage": "13.4.6",
+    "Aspire.Hosting.Azure.Storage": "13.6.5",
     "PinguApps.Aspire.Hosting.Bunny.Storage": "<package version>"
   }
 }

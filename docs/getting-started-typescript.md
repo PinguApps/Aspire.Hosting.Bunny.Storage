@@ -7,7 +7,7 @@ Add the packages to `aspire.config.json`:
 ```json
 {
   "packages": {
-    "Aspire.Hosting.Azure.Storage": "13.4.6",
+    "Aspire.Hosting.Azure.Storage": "13.6.5",
     "PinguApps.Aspire.Hosting.Bunny.Storage": "<package version>"
   }
 }
