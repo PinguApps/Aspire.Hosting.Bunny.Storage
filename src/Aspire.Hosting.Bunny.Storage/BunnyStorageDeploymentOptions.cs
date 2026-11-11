@@ -7,7 +7,7 @@ public sealed class BunnyStorageDeploymentOptions
 
     public BunnyStorageDeploymentOptions()
     {
-        _explicitSettings = new HashSet<string>(StringComparer.Ordinal);
+        _explicitSettings = [with(StringComparer.Ordinal)];
     }
 
     internal BunnyStorageDeploymentOptions(BunnyStorageDeploymentOptions source)
