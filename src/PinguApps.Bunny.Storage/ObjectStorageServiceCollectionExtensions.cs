@@ -22,7 +22,7 @@ public static class ObjectStorageServiceCollectionExtensions
         services.AddHttpClient();
         services.AddSingleton<IObjectStorageProvider>(serviceProvider =>
         {
-            Dictionary<string, IObjectStorage> stores = new(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, IObjectStorage> stores = [with(StringComparer.OrdinalIgnoreCase)];
             foreach (string name in names)
             {
                 stores[name] = CreateStorage(name, root.GetSection(name), serviceProvider);
