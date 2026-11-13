@@ -99,6 +99,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ### Technical Baseline
 - Target framework: `.NET 10`.
+- Keep the Aspire hosting project's scoped Extensions 10 pins in `src/Aspire.Hosting.Bunny.Storage/Directory.Packages.props`; the runtime client uses Extensions 11 independently. Validate both packed consumers when changing this boundary.
 - Target Aspire version: currently pinned in `Directory.Packages.props`.
 - Keep Aspire's built-in Azure Blob Storage container as the local resource of record.
 - Preserve normal local Azurite behavior unless the work is explicitly about deploy-time Bunny behavior.

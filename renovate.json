@@ -22,6 +22,16 @@
         "/^Aspire\\./"
       ],
       "enabled": false
+    },
+    {
+      "description": "Keep the Aspire 13.6 hosting dependency graph on Extensions 10; runtime client upgrades remain independent.",
+      "matchFileNames": [
+        "src/Aspire.Hosting.Bunny.Storage/Directory.Packages.props"
+      ],
+      "matchPackageNames": [
+        "/^Microsoft\\.Extensions\\./"
+      ],
+      "allowedVersions": "<11"
     }
   ]
 }
