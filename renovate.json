@@ -18,6 +18,12 @@
   ],
   "packageRules": [
     {
+      "description": "Prevent stale npm lock-maintenance branches from reopening after squash merges. Regular dependency updates still refresh their locks.",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "enabled": false
+    },
+    {
       "matchPackageNames": [
         "/^Aspire\\./"
       ],
