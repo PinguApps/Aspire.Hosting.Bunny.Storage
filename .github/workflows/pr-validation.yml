@@ -29,18 +29,50 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+
+      - name: Check for changes affecting the packed consumer
+        id: package-impact
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Compare what would actually land, and require the expected merge parents.
+          if [[ $(git rev-parse HEAD^1) != "$BASE_SHA" || $(git rev-parse HEAD^2) != "$HEAD_SHA" ]]; then
+            exit 0
+          fi
+
+          changes=$(mktemp)
+          if ! git diff --no-renames --name-only -z "$BASE_SHA" HEAD -- > "$changes"; then
+            exit 0
+          fi
+
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              docs/*.md|AGENTS.md|renovate.json|.github/workflows/release-drafter.yml) ;;
+              *) exit 0 ;;
+            esac
+          done < "$changes"
+
+          echo "skip=true" >> "$GITHUB_OUTPUT"
 
       - name: Setup .NET SDK
+        if: steps.package-impact.outputs.skip != 'true'
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 
       - name: Setup Aspire CLI
+        if: steps.package-impact.outputs.skip != 'true'
         run: |
           dotnet tool install -g Aspire.Cli --version 13.6.5
           echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
       - name: Validate NuGet-backed TypeScript AppHost fixture
+        if: steps.package-impact.outputs.skip != 'true'
         shell: pwsh
         run: ./eng/Validate-TypeScriptAppHostPackage.ps1
 
