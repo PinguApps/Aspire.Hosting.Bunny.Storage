@@ -7,5 +7,6 @@
     <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.Dotnet" />
     <ProjectReference Include="..\..\..\src\Aspire.Hosting.Bunny.Storage\Aspire.Hosting.Bunny.Storage.csproj" />
+    <ProjectReference Include="..\Web\BunnyStorageManual.Web.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
