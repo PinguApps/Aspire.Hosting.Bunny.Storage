@@ -1,5 +1,7 @@
 # TypeScript AppHost Usage
 
+The hosting package requires Aspire 17.0.0 or later.
+
 TypeScript AppHosts use Aspire's generated module surface from `PinguApps.Aspire.Hosting.Bunny.Storage`.
 
 Add the packages to `aspire.config.json`:
@@ -7,7 +9,7 @@ Add the packages to `aspire.config.json`:
 ```json
 {
   "packages": {
-    "Aspire.Hosting.Azure.Storage": "13.6.5",
+    "Aspire.Hosting.Azure.Storage": "17.0.0",
     "PinguApps.Aspire.Hosting.Bunny.Storage": "<package version>"
   }
 }

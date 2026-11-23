@@ -1,5 +1,7 @@
 # C# AppHost Usage
 
+The hosting package requires Aspire 17.0.0 or later.
+
 Install the hosting and server runtime packages:
 
 ```powershell
@@ -30,7 +32,7 @@ var media = builder.AddAzureStorage("storage")
             options.PullZoneName = "myapp-media";
         });
 
-builder.AddProject<Projects.Web>("web")
+builder.AddDotnetProject("web", "../Web/Web.csproj")
     .WithReference(media)
     .WithObjectStorage(media);
 

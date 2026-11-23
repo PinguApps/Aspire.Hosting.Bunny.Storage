@@ -7,7 +7,7 @@
 - Hosting package: `PinguApps.Aspire.Hosting.Bunny.Storage`
 - Runtime package: `PinguApps.Bunny.Storage`
 - Distribution: NuGet for C# and TypeScript AppHosts
-- Tested Aspire baseline: `13.6.5`
+- Minimum supported Aspire version for the hosting package: `17.0.0`
 - Local behaviour: Azure Blob Storage through Azurite
 - Deploy behaviour: opt-in Bunny Storage create/adopt validation, with optional Pull Zone creation
 
@@ -44,7 +44,7 @@ var media = builder.AddAzureStorage("storage")
         options.PullZoneName = "myapp-media";
     });
 
-builder.AddProject<Projects.Web>("web")
+builder.AddDotnetProject("web", "../Web/Web.csproj")
     .WithReference(media)
     .WithObjectStorage(media);
 
@@ -66,7 +66,7 @@ TypeScript AppHosts consume the same NuGet package through Aspire's generated mo
 ```json
 {
   "packages": {
-    "Aspire.Hosting.Azure.Storage": "13.6.5",
+    "Aspire.Hosting.Azure.Storage": "17.0.0",
     "PinguApps.Aspire.Hosting.Bunny.Storage": "<package version>"
   }
 }

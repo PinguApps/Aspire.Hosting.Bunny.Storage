@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Fixtures\**\*.cs" />
+    <PackageReference Include="Aspire.Hosting.Dotnet" />
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
@@ -14,7 +15,6 @@
     <ProjectReference Include="..\..\src\PinguApps.Bunny.Storage\PinguApps.Bunny.Storage.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\samples\AppHostSnippets\Projects\Web.cs" Link="Samples\Projects\Web.cs" />
     <Compile Include="..\..\samples\AppHostSnippets\BunnyStorageAppHostSnippets.cs" Link="Samples\BunnyStorageAppHostSnippets.cs" />
   </ItemGroup>
   <ItemGroup>
