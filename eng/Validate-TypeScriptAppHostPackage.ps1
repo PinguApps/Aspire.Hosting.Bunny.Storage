@@ -84,7 +84,11 @@ try {
     aspire restore --non-interactive
     npm ci --no-audit --no-fund
     npm run typecheck
-    aspire deploy --non-interactive --list-steps
+    $deployPlan = aspire deploy --non-interactive --list-steps
+    $deployPlan | Write-Host
+    if (-not ($deployPlan -match '^\s*\d+\. bunny-storage-media\s*$')) {
+        throw "The packaged TypeScript AppHost did not register the bunny-storage-media deploy step."
+    }
 }
 finally {
     if ($null -eq $previousNuGetPackages) {

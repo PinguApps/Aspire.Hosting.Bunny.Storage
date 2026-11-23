@@ -5,7 +5,7 @@
 C#:
 
 ```csharp
-builder.AddProject<Projects.Web>("web")
+builder.AddDotnetProject("web", "../Web/Web.csproj")
     .WithReference(media)
     .WithObjectStorage(media);
 ```

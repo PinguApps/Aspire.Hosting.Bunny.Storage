@@ -21,7 +21,7 @@ IResourceBuilder<AzureBlobStorageContainerResource> media = builder.AddAzureStor
             options.PublicBaseUrl = "https://myapp-media.b-cdn.net";
         });
 
-builder.AddProject<Projects.BunnyStorageManual_Web>("web")
+builder.AddDotnetProject("web", "../Web/BunnyStorageManual.Web.csproj")
     .WithReference(media)
     .WithObjectStorage(media);
 

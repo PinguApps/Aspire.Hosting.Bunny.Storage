@@ -3,19 +3,6 @@
   "extends": [
     "local>PinguApps/renovate-config"
   ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/(^|/)samples/BunnyStorageManual/AppHost/BunnyStorageManual\\.AppHost\\.csproj$/"
-      ],
-      "matchStrings": [
-        "<Project Sdk=\"Aspire\\.AppHost\\.Sdk/(?<currentValue>[^\"]+)\""
-      ],
-      "datasourceTemplate": "nuget",
-      "depNameTemplate": "Aspire.AppHost.Sdk"
-    }
-  ],
   "packageRules": [
     {
       "description": "Prevent stale npm lock-maintenance branches from reopening after squash merges. Regular dependency updates still refresh their locks.",
@@ -24,13 +11,7 @@
       "enabled": false
     },
     {
-      "matchPackageNames": [
-        "/^Aspire\\./"
-      ],
-      "enabled": false
-    },
-    {
-      "description": "Keep the Aspire 13.6 hosting dependency graph on Extensions 10; runtime client upgrades remain independent.",
+      "description": "Keep the Aspire hosting dependency graph on Extensions 10; runtime client upgrades remain independent.",
       "matchFileNames": [
         "src/Aspire.Hosting.Bunny.Storage/Directory.Packages.props"
       ],
@@ -38,6 +19,11 @@
         "/^Microsoft\\.Extensions\\./"
       ],
       "allowedVersions": "<11"
+    },
+    {
+      "description": "Keep first-party Aspire upgrades coordinated with the tested baseline.",
+      "matchPackageNames": ["/^Aspire(?:\\.|$)/i"],
+      "enabled": false
     }
   ]
 }

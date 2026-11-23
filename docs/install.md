@@ -1,5 +1,7 @@
 # Install
 
+The hosting package requires Aspire 17.0.0 or later.
+
 ## C# AppHost
 
 ```powershell
@@ -27,7 +29,7 @@ TypeScript AppHosts consume the hosting integration through NuGet and Aspire's g
 ```json
 {
   "packages": {
-    "Aspire.Hosting.Azure.Storage": "13.6.5",
+    "Aspire.Hosting.Azure.Storage": "17.0.0",
     "PinguApps.Aspire.Hosting.Bunny.Storage": "<package version>"
   }
 }

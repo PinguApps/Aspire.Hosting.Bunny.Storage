@@ -54,8 +54,22 @@ if ([string]::IsNullOrWhiteSpace($baseline)) {
   throw "Missing Aspire.Hosting baseline in Directory.Packages.props."
 }
 
-Add-Pin -Path "Directory.Packages.props" -Name "Aspire.Hosting.Azure.Storage" -Version $packageVersions["Aspire.Hosting.Azure.Storage"]
-Add-RegexPin -Path "samples/BunnyStorageManual/AppHost/BunnyStorageManual.AppHost.csproj" -Name "Aspire.AppHost.Sdk" -Pattern '<Project Sdk="Aspire\.AppHost\.Sdk/(?<version>[^"]+)"'
+foreach ($name in $packageVersions.Keys | Where-Object { $_ -match '^Aspire(?:\.|$)' }) {
+  Add-Pin -Path "Directory.Packages.props" -Name $name -Version $packageVersions[$name]
+}
+
+foreach ($workflow in @("_run-tests", "pr-validation", "publish")) {
+  Add-RegexPin -Path ".github/workflows/$workflow.yml" -Name "Aspire.Cli" -Pattern 'dotnet tool install -g Aspire\.Cli --version (?<version>\S+)'
+}
+
+foreach ($directory in @("samples/TypeScriptAppHost", "tests/Aspire.Hosting.Bunny.Storage.Tests/Fixtures/TypeScriptAppHost")) {
+  $path = "$directory/aspire.config.json"
+  $config = Get-Content -Raw -Path (Join-Path $repoRoot $path) | ConvertFrom-Json -AsHashtable
+  Add-Pin -Path $path -Name "Aspire CLI" -Version $config.sdk.version
+  foreach ($name in $config.packages.Keys | Where-Object { $_ -match '^Aspire(?:\.|$)' }) {
+    Add-Pin -Path $path -Name $name -Version $config.packages[$name]
+  }
+}
 
 $driftedPins = $pins | Where-Object { $_.Version -ne $baseline }
 

@@ -1,6 +1,6 @@
 <Project>
   <Import Project="../../Directory.Packages.props" />
-  <!-- Aspire 13.6 runs its polyglot host with Extensions 10; do not promote the runtime client's Extensions 11 pins into this package. -->
+  <!-- The Aspire polyglot host targets Extensions 10; do not promote the runtime client's Extensions 11 pins into this package. -->
   <ItemGroup>
     <PackageVersion Update="Microsoft.Extensions.Configuration" Version="10.0.15" />
     <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.15" />
